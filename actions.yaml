@@ -1,0 +1,103 @@
+version:
+  description: Return version of installed software.
+node-configured:
+  description: Remove a node from DownNodes when the reason is `New node`.
+get-node-inventory:
+  description: Return node inventory.
+set-node-inventory:
+  description: Modify node inventory.
+  params:
+    real-memory:
+      type: integer
+      description: Total amount of memory of the node, in MB.
+
+show-nhc-config:
+  description: Display the currently used `nhc.conf`.
+
+get-infiniband-repo:
+  description: >
+    Display the currently configured repository for Infiniband drivers.
+set-infiniband-repo:
+  description: >
+    Set the new infiniband repository.
+
+    Note: The repository file must be base64 encoded when using this action.
+
+    Example usage:
+    $ juju run-action slurmd/leader set-infiniband-repo repo="$(cat repo.file | base64)"
+  params:
+    repo:
+      type: string
+      description: >
+        Base64 encoded string that holds all information about the repository.
+  required:
+    - repo
+  description: >
+    Overrides the repository file with a custom repository for Infiniband
+    installation.
+
+    Note: This file should be base64 encoded.
+
+    On CentOS, the file is placed at `/etc/yum.repos.d/infiniband.repo`, while
+    on Ubuntu it is at `/etc/apt/sources.list.d/infiniband.list`.
+install-infiniband:
+  description: >
+    Install Mellanox Infiniband drivers. This might take a few minutes to
+    complete.
+
+    If no custom repository was specified before, this action will set the
+    Mellanox repository as the default and install the latest drivers from it.
+uninstall-infiniband:
+  description: Uninstall Mellanox Infiniband drivers.
+start-infiniband:
+  description: Start Infiniband systemd service.
+enable-infiniband:
+  description: Enable Infiniband systemd service.
+stop-infiniband:
+  description: Stop Infiniband systemd service.
+is-active-infiniband:
+  description: Check if Infiniband systemd service is active.
+
+nvidia-repo:
+  description: >
+    Get or set the repository used to install Nvidia drivers.
+
+    This value must be set **before** installing the drivers. Changing it
+    afterwards has no impact on the system.
+
+    Note: The repository file must be base64 encoded when using this action.
+  params:
+    repo:
+      type: string
+      description: >
+        If specified, set the repository to the value specified.
+nvidia-package:
+  description: >
+    Get or set the Nvidia driver package name.
+
+    This value must be set **before** installing the drivers. Changing it
+    afterwards has no impact on the system.
+  params:
+    package:
+      type: string
+      description: >
+        If specified, set the package name to the value specified
+nvidia-install:
+  description: >
+    Install Nvidia GPU drivers. This might take a few minutes to complete.
+
+    If no custom repository was specified before, this action will set the
+    Nvidia repository as the default and install the latest drivers from it.
+
+singularity-install:
+  description: >
+    Install Singularity. This might take a few minutes to complete.
+
+    This action will install singularity using the official .deb (Ubuntu) 
+    or .rpm (CentOS) packages retrieved from GitHub Releases.
+
+    Note: The .deb or .rpm files must be supplied as Juju resources.
+
+mpi-install:
+  description: >
+    Install MPI (`mpich`). This might take a few minutes to complete.

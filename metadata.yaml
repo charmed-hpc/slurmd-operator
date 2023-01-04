@@ -1,0 +1,52 @@
+name: slurmd
+
+summary: |
+    Slurmd, the compute node daemon of Slurm.
+
+maintainers:
+    - OmniVector Solutions <admin@omnivector.solutions>
+
+description: |
+    This charm provides slurmd, munged, and the bindings to other utilities
+    that make lifecycle operations a breeze.
+
+    slurmd is the compute node daemon of SLURM. It monitors all tasks running
+    on the compute node, accepts work (tasks), launches tasks, and kills
+    running tasks upon request.
+
+tags:
+    - slurm
+    - hpc
+
+series:
+    - focal
+    - centos7
+
+provides:
+  slurmd:
+    interface: slurmd
+
+requires:
+  fluentbit:
+    interface: fluentbit
+
+peers:
+  slurmd-peer:
+    interface: slurmd-peer
+
+resources:
+  singularity-deb:
+    type: file
+    filename: singularity-ce_3.10.2-focal_amd64.deb
+    description: |
+      Official .deb package to install Singularity. Retrieved from GitHub Releases.  
+  singularity-rpm:
+    type: file
+    filename: singularity-ce-3.10.2-1.el7.x86_64.rpm
+    description: |
+      Official .rpm package to install Singularity. Retrieved from GitHub Releases.
+  nhc:
+     type: file
+     filename: lbnl-nhc-1.4.3.tar.gz
+     description: |
+       Official tarball containing NHC. Retrieved from Github Releases.

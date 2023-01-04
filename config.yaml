@@ -1,0 +1,48 @@
+options:
+  custom-slurm-repo:
+    type: string
+    default: ""
+    description: >
+      Use a custom repository for Slurm installation.
+
+      This can be set to the Organization's local mirror/cache of packages and
+      supersedes the Omnivector repositories. Alternatively, it can be used to
+      track a `testing` Slurm version, e.g. by setting to
+      `ppa:omnivector/osd-testing` (on Ubuntu), or
+      `https://omnivector-solutions.github.io/repo/centos7/stable/$basearch`
+      (on CentOS).
+
+      Note: The configuration `custom-slurm-repo` must be set *before*
+      deploying the units. Changing this value after deploying the units will
+      not reinstall Slurm.
+  partition-name:
+    type: string
+    default:
+    description: >
+      Name by which the partition may be referenced (e.g. `Interactive`).
+
+      Note: The partition name should only contain letters, numbers, and
+      hyphens. Spaces are not allowed.
+  partition-config:
+    type: string
+    default: ""
+    description: >
+      Extra partition configuration, specified as a space separated `key=value`
+      in a single line.
+
+      Example usage:
+      $ juju config slurmd partition-config="DefaultTime=45:00 MaxTime=1:00:00"
+  partition-state:
+    type: string
+    default: "UP"
+    description: >
+      State of partition or availability for use. Possible values are `UP`,
+      `DOWN`, `DRAIN` and `INACTIVE`. The default value is `UP`. See also the
+      related `Alternate` keyword.
+  nhc-conf:
+    default: ""
+    type: string
+    description: >
+      Custom extra configuration to use for Node Health Check.
+
+      These lines are appended to a basic `nhc.conf` provided by the charm.
