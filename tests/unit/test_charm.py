@@ -14,11 +14,12 @@ class TestCharm(unittest.TestCase):
 
     def test_update_status_fail(self):
         self.harness.charm.on.update_status.emit()
-        self.assertEqual(self.harness.charm.unit.status, BlockedStatus("Error installing slurmd"))
+        self.assertEqual(self.harness.charm.unit.status, BlockedStatus("Machine needs reboot"))
 
+    @patch("slurm_ops_manager.SlurmManager.needs_reboot", new_callable=PropertyMock(return_value=False))
     @patch("interface_slurmd.Slurmd.is_joined", new_callable=PropertyMock(return_value=True))
     @patch("slurm_ops_manager.SlurmManager.check_munged", lambda _: True)
-    def test_update_status_success(self, _):
+    def test_update_status_success(self, *_):
         self.harness.charm._stored.slurm_installed = True
         self.harness.charm._stored.slurmctld_available = True
         self.harness.charm._stored.slurmctld_started = True
