@@ -13,6 +13,22 @@ class TestCharm(unittest.TestCase):
         self.maxDiff = None
 
     @patch("ops.framework.EventBase.defer")
+    def test_check_etcd_fail(self, defer):
+        self.harness.charm.on.check_etcd.emit()
+        defer.assert_called()
+
+    @patch("charm.SlurmdCharm._on_slurmctld_started")
+    @patch("json.loads", lambda _: ["test"])
+    @patch("charm.SlurmdCharm.hostname", new_callable=PropertyMock(return_value="test"))
+    @patch("omnietcd3.Etcd3AuthClient.get")
+    @patch("charm.SlurmdCharm.etcd_ca_cert", new_callable=PropertyMock(return_value=""))
+    @patch("charm.SlurmdCharm.etcd_use_tls", new_callable=PropertyMock(return_value=False))
+    @patch("ops.framework.EventBase.defer")
+    def test_check_etcd_success(self, defer, *_):
+        self.harness.charm.on.check_etcd.emit()
+        defer.assert_not_called()
+
+    @patch("ops.framework.EventBase.defer")
     def test_config_changed_fail(self, defer):
         self.harness.set_leader(True)
         self.harness.charm.on.config_changed.emit()
