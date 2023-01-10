@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, PropertyMock, patch
+from unittest.mock import PropertyMock, patch
 
 from charm import SlurmdCharm
 from ops.model import ActiveStatus, BlockedStatus
@@ -10,7 +10,6 @@ class TestCharm(unittest.TestCase):
         self.harness = Harness(SlurmdCharm)
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
-        self.maxDiff = None
 
     @patch("ops.framework.EventBase.defer")
     def test_check_etcd_fail(self, defer):
