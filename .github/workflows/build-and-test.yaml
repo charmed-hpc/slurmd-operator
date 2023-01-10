@@ -25,3 +25,16 @@ jobs:
         run: python3 -m pip install tox
       - name: Run tests
         run: tox -e unit
+
+  call-inclusive-naming-check:
+      name: Inclusive naming
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v2
+
+        - name: woke
+          uses: get-woke/woke-action@v0
+          with:
+            # Cause the check to fail on any broke rules
+            fail-on-error: true
