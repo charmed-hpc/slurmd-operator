@@ -13,8 +13,7 @@ body:
     attributes:
       label: Bug Description
       description: >
-        If applicable, add screenshots to help explain your problem. If applicable, add screenshots to 
-        help explain the problem you are facing.
+        Provide a description of the issue you are facing. If applicable, add screenshots to help explain the problem.
     validations:
       required: true
   - type: textarea
@@ -46,8 +45,8 @@ body:
       label: Relevant log output
       description: >
         Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
-        Fetch the logs using `juju debug-log --replay` and `kubectl logs ...`. Additional details available in the juju docs 
-        at https://juju.is/docs/olm/juju-logs
+        Fetch the logs using `juju debug-log --replay`. Additional details available in the juju docs at
+        https://juju.is/docs/olm/juju-logs
       render: shell
     validations:
       required: true
