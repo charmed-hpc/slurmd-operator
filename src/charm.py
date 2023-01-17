@@ -6,17 +6,15 @@ import logging
 from pathlib import Path
 from time import sleep
 
+from charms.fluentbit.v0.fluentbit import FluentbitClient
+from interface_slurmd import Slurmd
+from interface_slurmd_peer import SlurmdPeer
 from omnietcd3 import Etcd3AuthClient
 from ops.charm import CharmBase, CharmEvents
 from ops.framework import EventBase, EventSource, StoredState
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, ModelError, WaitingStatus
 from slurm_ops_manager import SlurmManager
-
-from interface_slurmd import Slurmd
-from interface_slurmd_peer import SlurmdPeer
-
-from charms.fluentbit.v0.fluentbit import FluentbitClient
 
 logger = logging.getLogger()
 
@@ -35,6 +33,7 @@ class CheckEtcd(EventBase):
 
 class SlurmdCharmEvents(CharmEvents):
     """Slurmd emitted events."""
+
     slurmd_start = EventSource(SlurmdStart)
     slurmctld_started = EventSource(SlurmctldStarted)
     check_etcd = EventSource(CheckEtcd)
@@ -139,7 +138,7 @@ class SlurmdCharm(CharmBase):
 
     def _configure_fluentbit(self):
         logger.debug("## Configuring fluentbit")
-        cfg = list()
+        cfg = []
         cfg.extend(self._slurm_manager.fluentbit_config_nhc)
         cfg.extend(self._slurm_manager.fluentbit_config_slurm)
         self._fluentbit.configure(cfg)
@@ -194,7 +193,7 @@ class SlurmdCharm(CharmBase):
     def ensure_slurmd_starts(self, max_attemps=10) -> bool:
         """Ensure slurmd is up and running."""
         logger.debug("## Stoping slurmd")
-        self._slurm_manager.slurm_systemctl('stop')
+        self._slurm_manager.slurm_systemctl("stop")
 
         for i in range(max_attemps):
             if self._slurm_manager.slurm_is_active():
@@ -226,7 +225,7 @@ class SlurmdCharm(CharmBase):
             event.defer()
             return
 
-        logger.debug('#### Slurmctld available - setting overrides for configless')
+        logger.debug("#### Slurmctld available - setting overrides for configless")
         # get slurmctld host:port from relation and override systemd services
         host = self._slurmd.slurmctld_hostname
         port = self._slurmd.slurmctld_port
@@ -274,7 +273,6 @@ class SlurmdCharm(CharmBase):
         time, if so, emit slurmctld_started event, so the node can start the
         daemon.
         """
-
         host = self._slurmd.slurmctld_address
         port = self._slurmd.etcd_port
 
@@ -294,9 +292,14 @@ class SlurmdCharm(CharmBase):
             ca_cert = Path.as_posix()
 
         logger.debug(f"## Connecting to etcd3 in {protocol}://{host}:{port}, {ca_cert}")
-        client = Etcd3AuthClient(host=host, port=port,
-                                 protocol=protocol, ca_cert=ca_cert,
-                                 username=username, password=password)
+        client = Etcd3AuthClient(
+            host=host,
+            port=port,
+            protocol=protocol,
+            ca_cert=ca_cert,
+            username=username,
+            password=password,
+        )
 
         logger.debug("## Querying etcd3 for node list")
         try:
@@ -323,7 +326,7 @@ class SlurmdCharm(CharmBase):
         logger.debug("## Slurmctld unavailable")
         self._set_slurmctld_available(False)
         self._set_slurmctld_started(False)
-        self._slurm_manager.slurm_systemctl('stop')
+        self._slurm_manager.slurm_systemctl("stop")
         self._check_status()
 
     def _on_slurmctld_started(self, event):
@@ -354,7 +357,7 @@ class SlurmdCharm(CharmBase):
             logger.debug("## slurmd config changed - leader")
             self._on_set_partition_info_on_app_relation_data(event)
 
-        nhc_conf = self.model.config.get('nhc-conf')
+        nhc_conf = self.model.config.get("nhc-conf")
         if nhc_conf:
             if nhc_conf != self._stored.nhc_conf:
                 self._stored.nhc_conf = nhc_conf
@@ -369,7 +372,7 @@ class SlurmdCharm(CharmBase):
         partition_name_from_config = self.config.get("partition-name")
         if partition_name:
             if partition_name_from_config:
-                partition_name_from_config = partition_name_from_config.replace(' ', '-')
+                partition_name_from_config = partition_name_from_config.replace(" ", "-")
                 if partition_name != partition_name_from_config:
                     self._set_partition_name(partition_name_from_config)
                     partition_name = partition_name_from_config
@@ -390,11 +393,9 @@ class SlurmdCharm(CharmBase):
             self._slurmd_peer.partition_name = name
 
     def _write_munge_key_and_restart_munge(self):
-        logger.debug('#### slurmd charm - writting munge key')
+        logger.debug("#### slurmd charm - writting munge key")
 
-        self._slurm_manager.configure_munge_key(
-            self._slurmd.get_stored_munge_key()
-        )
+        self._slurm_manager.configure_munge_key(self._slurmd.get_stored_munge_key())
 
         if self._slurm_manager.restart_munged():
             logger.debug("## Munge restarted succesfully")
@@ -409,9 +410,9 @@ class SlurmdCharm(CharmBase):
         - infiniband
         """
         version = {}
-        version['slurm'] = self._slurm_manager.slurm_version()
-        version['munge'] = self._slurm_manager.munge_version()
-        version['infiniband'] = self._slurm_manager.infiniband_version()
+        version["slurm"] = self._slurm_manager.slurm_version()
+        version["munge"] = self._slurm_manager.munge_version()
+        version["infiniband"] = self._slurm_manager.infiniband_version()
 
         event.set_results(version)
 
@@ -419,12 +420,12 @@ class SlurmdCharm(CharmBase):
         """Remove node from DownNodes."""
         # trigger reconfig
         self._slurmd.configure_new_node()
-        logger.debug('### This node is not new anymore')
+        logger.debug("### This node is not new anymore")
 
     def _on_get_node_inventory_action(self, event):
         """Return node inventory."""
         inventory = self._slurmd.node_inventory
-        logger.debug(f'### Node inventory: {inventory}')
+        logger.debug(f"### Node inventory: {inventory}")
 
         # Juju does not like underscores in dictionaries
         inv = {k.replace("_", "-"): v for k, v in inventory.items()}
@@ -446,7 +447,7 @@ class SlurmdCharm(CharmBase):
     def get_infiniband_repo(self, event):
         """Return the currently used infiniband repository."""
         repo = self._slurm_manager.infiniband.repository
-        event.set_results({'infiniband-repo': repo})
+        event.set_results({"infiniband-repo": repo})
 
     def set_infiniband_repo(self, event):
         """Set the infiniband repository."""
@@ -459,7 +460,7 @@ class SlurmdCharm(CharmBase):
         """Install infiniband."""
         logger.debug("#### Installing Infiniband")
         self._slurm_manager.infiniband.install()
-        event.set_results({'installation': 'Successfull. Please reboot node.'})
+        event.set_results({"installation": "Successfull. Please reboot node."})
         self.unit.status = BlockedStatus("Need reboot for Infiniband")
 
     def uninstall_infiniband(self, event):
@@ -486,7 +487,7 @@ class SlurmdCharm(CharmBase):
         """Check if Infiniband systemd service is arctive."""
         status = self._slurm_manager.infiniband.is_active()
         logger.debug(f"#### Infiniband service is-active: {status}")
-        event.set_results({'infiniband-is-active': status})
+        event.set_results({"infiniband-is-active": status})
 
     def nvidia_repo(self, event):
         """Set or get the used nvidia repository."""
@@ -494,7 +495,7 @@ class SlurmdCharm(CharmBase):
         if repo:
             self._slurm_manager.nvidia.repository = base64.b64decode(repo).decode()
 
-        event.set_results({'nvidia-repo': self._slurm_manager.nvidia.repository})
+        event.set_results({"nvidia-repo": self._slurm_manager.nvidia.repository})
 
     def nvidia_package(self, event):
         """Set or get the used nvidia package."""
@@ -503,13 +504,13 @@ class SlurmdCharm(CharmBase):
             # user supplied a package name -> store it
             self._slurm_manager.nvidia.package = package
 
-        event.set_results({'nvidia-package': self._slurm_manager.nvidia.package})
+        event.set_results({"nvidia-package": self._slurm_manager.nvidia.package})
 
     def nvidia_install(self, event):
         """Install nvidia drivers."""
         logger.debug("#### Installing nvidia drivers: %s", self._slurm_manager.nvidia.package)
         self._slurm_manager.nvidia.install()
-        event.set_results({'installation': 'Successfull. Please reboot node.'})
+        event.set_results({"installation": "Successfull. Please reboot node."})
         self.unit.status = BlockedStatus("Need reboot for nvidia")
 
     def singularity_install(self, event):
@@ -524,19 +525,19 @@ class SlurmdCharm(CharmBase):
                 resource_path = self.model.resources.fetch(resource_name)
                 logger.debug(f"#### Found singularity resource: {resource_path}")
                 self._slurm_manager.singularity.install(resource_path)
-                event.set_results({'installation': 'Successfull.'})
+                event.set_results({"installation": "Successfull."})
             except ModelError as e:
                 logger.error(f"## Missing singularity resource - {e}")
-                event.fail(message=f'Error installing Singularity: {e.output}')
+                event.fail(message=f"Error installing Singularity: {e.output}")
 
     def mpi_install(self, event):
         """Install MPI (mpich)."""
         self._slurm_manager.mpi.install()
 
         if self._slurm_manager.mpi.installed():
-            event.set_results({'installation': 'Successfull.'})
+            event.set_results({"installation": "Successfull."})
         else:
-            event.fail(message='Error installing mpich. Check the logs.')
+            event.fail(message="Error installing mpich. Check the logs.")
 
     def _on_show_nhc_config(self, event):
         """Show current nhc.conf."""
@@ -554,9 +555,7 @@ class SlurmdCharm(CharmBase):
             if self._slurmd.is_joined:
                 partition = self._assemble_partition()
                 if partition:
-                    self._slurmd.set_partition_info_on_app_relation_data(
-                        partition
-                    )
+                    self._slurmd.set_partition_info_on_app_relation_data(partition)
                 else:
                     event.defer()
             else:
