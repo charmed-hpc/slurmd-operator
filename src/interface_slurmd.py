@@ -4,7 +4,11 @@ import json
 import logging
 
 from ops.framework import (
-    EventBase, EventSource, Object, ObjectEvents, StoredState,
+    EventBase,
+    EventSource,
+    Object,
+    ObjectEvents,
+    StoredState,
 )
 from ops.model import Relation
 from utils import get_inventory
@@ -45,7 +49,7 @@ class Slurmd(Object):
             slurmctld_addr=str(),
             slurmctld_port=str(),
             etcd_port=str(),
-            nhc_params=str()
+            nhc_params=str(),
         )
 
         self.framework.observe(
@@ -100,9 +104,9 @@ class Slurmd(Object):
         # at this point so retrieve them from the relation data and store
         # them in the charm's stored state.
         self._store_munge_key(app_data["munge_key"])
-        self._store_slurmctld_host_port(app_data["slurmctld_host"],
-                                        app_data["slurmctld_port"],
-                                        slurmctld_addr)
+        self._store_slurmctld_host_port(
+            app_data["slurmctld_host"], app_data["slurmctld_port"], slurmctld_addr
+        )
         self.etcd_port = app_data["etcd_port"]
 
         self._charm.cluster_name = app_data.get("cluster_name")
@@ -121,7 +125,6 @@ class Slurmd(Object):
         - nhc parameters changed
         - tls parameters changed
         """
-
         app_data = event.relation.data[event.app]
         self._store_nhc_params(app_data.get("nhc_params"))
         self._store_tls_params(app_data.get("tls_cert"), app_data.get("ca_cert"))
@@ -173,9 +176,7 @@ class Slurmd(Object):
         # there is only one slurmctld, so there should be only one relation here
         relations = self._charm.framework.model.relations["slurmd"]
         for relation in relations:
-            relation.data[self.model.app]["partition_info"] = json.dumps(
-                partition_info
-            )
+            relation.data[self.model.app]["partition_info"] = json.dumps(partition_info)
 
     def _store_munge_key(self, munge_key: str):
         """Store the munge_key in the StoredState."""
