@@ -5,8 +5,8 @@ body:
   - type: markdown
     attributes:
       value: >
-        Thanks for taking the time to fill out this enhancement proposal! Before submitting your issue, please make
-        sure there isn't already a prior issue concerning this. If there is, please join that discussion instead.
+        Thanks for taking the time to fill out this enhancement proposal! Before submitting your proposal, please make
+        sure there isn't a pre-existing similar proposal. If there is, please join that discussion instead.
   - type: textarea
     id: enhancement-proposal
     attributes:

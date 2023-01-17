@@ -4,6 +4,19 @@ on:
   workflow_call:
 
 jobs:
+  inclusive-naming-check:
+    name: Inclusive naming check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: woke
+        uses: get-woke/woke-action@v0
+        with:
+          # Cause the check to fail on any broke rules
+          fail-on-error: true
+
   lint:
     name: Lint
     runs-on: ubuntu-22.04
@@ -25,16 +38,3 @@ jobs:
         run: python3 -m pip install tox
       - name: Run tests
         run: tox -e unit
-
-  call-inclusive-naming-check:
-      name: Inclusive naming
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v2
-
-        - name: woke
-          uses: get-woke/woke-action@v0
-          with:
-            # Cause the check to fail on any broke rules
-            fail-on-error: true
