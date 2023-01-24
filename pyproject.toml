@@ -1,6 +1,9 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+[tool.codespell]
+skip = "./build,./lib,./venv,./icon.svg"
+
 # Testing tools configuration
 [tool.coverage.run]
 branch = true
@@ -26,17 +29,14 @@ extend-ignore = [
     "D204",
     "D213",
     "D215",
-    "D400",
-    "D404",
     "D406",
     "D407",
     "D408",
     "D409",
     "D413",
 ]
-ignore = ["E501", "D107"]
+ignore = ["E501"]
 extend-exclude = ["__pycache__", "*.egg_info"]
-per-file-ignores = {"tests/*" = ["D100","D101","D102","D103","D104"]}
 
 [tool.ruff.mccabe]
 max-complexity = 10
