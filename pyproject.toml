@@ -1,6 +1,9 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+[tool.codespell]
+skip = "./build,./lib,./venv,./icon.svg"
+
 # Testing tools configuration
 [tool.coverage.run]
 branch = true
