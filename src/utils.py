@@ -21,8 +21,7 @@ def lscpu():
     lscpu_lines = lscpu_out.decode().strip().split("\n")
 
     return {
-        format_key(line.split(":")[0].strip()): line.split(":")[1].strip()
-        for line in lscpu_lines
+        format_key(line.split(":")[0].strip()): line.split(":")[1].strip() for line in lscpu_lines
     }
 
 
@@ -44,8 +43,7 @@ def lspci_nvidia():
     try:
         gpus = int(
             subprocess.check_output(
-                "lspci | grep -i nvidia | awk '{print $1}' "
-                "| cut -d : -f 1 | sort -u | wc -l",
+                "lspci | grep -i nvidia | awk '{print $1}' " "| cut -d : -f 1 | sort -u | wc -l",
                 shell=True,
             )
             .decode()
