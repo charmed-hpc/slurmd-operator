@@ -192,7 +192,7 @@ class SlurmdCharm(CharmBase):
 
     def ensure_slurmd_starts(self, max_attemps=10) -> bool:
         """Ensure slurmd is up and running."""
-        logger.debug("## Stoping slurmd")
+        logger.debug("## Stopping slurmd")
         self._slurm_manager.slurm_systemctl("stop")
 
         for i in range(max_attemps):
@@ -243,7 +243,7 @@ class SlurmdCharm(CharmBase):
 
     @property
     def etcd_use_tls(self) -> bool:
-        """Return wether TLS certificates are available."""
+        """Return whether TLS certificates are available."""
         return bool(self.etcd_tls_cert)
 
     @property
@@ -393,12 +393,12 @@ class SlurmdCharm(CharmBase):
             self._slurmd_peer.partition_name = name
 
     def _write_munge_key_and_restart_munge(self):
-        logger.debug("#### slurmd charm - writting munge key")
+        logger.debug("#### slurmd charm - writing munge key")
 
         self._slurm_manager.configure_munge_key(self._slurmd.get_stored_munge_key())
 
         if self._slurm_manager.restart_munged():
-            logger.debug("## Munge restarted succesfully")
+            logger.debug("## Munge restarted successfully")
         else:
             logger.error("## Unable to restart munge")
 
@@ -460,7 +460,7 @@ class SlurmdCharm(CharmBase):
         """Install infiniband."""
         logger.debug("#### Installing Infiniband")
         self._slurm_manager.infiniband.install()
-        event.set_results({"installation": "Successfull. Please reboot node."})
+        event.set_results({"installation": "Successful. Please reboot node."})
         self.unit.status = BlockedStatus("Need reboot for Infiniband")
 
     def uninstall_infiniband(self, event):
@@ -480,7 +480,7 @@ class SlurmdCharm(CharmBase):
 
     def stop_infiniband(self, event):
         """Stop Infiniband systemd service."""
-        logger.debug("#### Stoping Infiniband service")
+        logger.debug("#### Stopping Infiniband service")
         self._slurm_manager.infiniband.stop()
 
     def is_active_infiniband(self, event):
@@ -510,7 +510,7 @@ class SlurmdCharm(CharmBase):
         """Install nvidia drivers."""
         logger.debug("#### Installing nvidia drivers: %s", self._slurm_manager.nvidia.package)
         self._slurm_manager.nvidia.install()
-        event.set_results({"installation": "Successfull. Please reboot node."})
+        event.set_results({"installation": "Successful. Please reboot node."})
         self.unit.status = BlockedStatus("Need reboot for nvidia")
 
     def singularity_install(self, event):
@@ -525,7 +525,7 @@ class SlurmdCharm(CharmBase):
                 resource_path = self.model.resources.fetch(resource_name)
                 logger.debug(f"#### Found singularity resource: {resource_path}")
                 self._slurm_manager.singularity.install(resource_path)
-                event.set_results({"installation": "Successfull."})
+                event.set_results({"installation": "Successful."})
             except ModelError as e:
                 logger.error(f"## Missing singularity resource - {e}")
                 event.fail(message=f"Error installing Singularity: {e.output}")
@@ -535,7 +535,7 @@ class SlurmdCharm(CharmBase):
         self._slurm_manager.mpi.install()
 
         if self._slurm_manager.mpi.installed:
-            event.set_results({'installation': 'Successfull.'})
+            event.set_results({"installation": "Successful."})
         else:
             event.fail(message="Error installing mpich. Check the logs.")
 
@@ -551,7 +551,7 @@ class SlurmdCharm(CharmBase):
             # If the relation with slurmctld exists then set our
             # partition info on the application relation data.
             # This handler shouldn't fire if the relation isn't made,
-            # but add this extra check here just incase.
+            # but add this extra check here just in case.
             if self._slurmd.is_joined:
                 partition = self._assemble_partition()
                 if partition:

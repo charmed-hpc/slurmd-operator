@@ -24,7 +24,10 @@ from ops.testing import Harness
 
 
 class TestCharm(unittest.TestCase):
+    """Unit test slurmd charm."""
+
     def setUp(self) -> None:
+        """Set up unit test."""
         self.harness = Harness(SlurmdCharm)
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()

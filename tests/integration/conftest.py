@@ -17,16 +17,17 @@
 
 import pathlib
 
+from helpers import ETCD, NHC, VERSION
 from pytest import fixture
 from pytest_operator.plugin import OpsTest
-
-from helpers import ETCD, NHC, VERSION
 
 
 @fixture(scope="module")
 async def slurmd_charm(ops_test: OpsTest):
+    """Build slurmd charm to use for integration tests."""
     charm = await ops_test.build_charm(".")
     return charm
+
 
 def pytest_sessionfinish(session, exitstatus) -> None:
     """Clean up repository after test session has completed."""
