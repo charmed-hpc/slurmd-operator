@@ -534,8 +534,8 @@ class SlurmdCharm(CharmBase):
         """Install MPI (mpich)."""
         self._slurm_manager.mpi.install()
 
-        if self._slurm_manager.mpi.installed():
-            event.set_results({"installation": "Successfull."})
+        if self._slurm_manager.mpi.installed:
+            event.set_results({'installation': 'Successfull.'})
         else:
             event.fail(message="Error installing mpich. Check the logs.")
 
