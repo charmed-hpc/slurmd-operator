@@ -16,18 +16,13 @@
 """Test slurmd charm against other SLURM charms in the latest/edge channel."""
 
 import asyncio
+
 import pytest
-
 from helpers import (
-    get_slurmd_res,
     get_slurmctld_res,
+    get_slurmd_res,
 )
-
-from pathlib import Path
 from pytest_operator.plugin import OpsTest
-from tenacity import retry
-from tenacity.stop import stop_after_attempt
-from tenacity.wait import wait_exponential as wexp
 
 SERIES = ["focal"]
 SLURMD = "slurmd"
@@ -85,11 +80,11 @@ async def test_build_and_deploy(ops_test: OpsTest, series: str, slurmd_charm):
 
     # Build and Deploy Slurmd
     await ops_test.model.deploy(
-            str(await slurmd_charm),
-            application_name=SLURMD,
-            num_units=1,
-            resources=res_slurmd,
-            series=series,
+        str(await slurmd_charm),
+        application_name=SLURMD,
+        num_units=1,
+        resources=res_slurmd,
+        series=series,
     )
 
     # Attach NHC resource to the slurmd controller

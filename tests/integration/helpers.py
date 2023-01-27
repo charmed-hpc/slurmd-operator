@@ -19,7 +19,6 @@ import logging
 import pathlib
 import shlex
 import subprocess
-
 from typing import Dict
 from urllib import request
 
@@ -45,6 +44,7 @@ def get_slurmctld_res() -> Dict[str, pathlib.Path]:
         request.urlretrieve(ETCD_URL, etcd)
 
     return {"etcd": etcd}
+
 
 def get_slurmd_res() -> Dict[str, pathlib.Path]:
     """Get slurmd resources needed for charm deployment."""
