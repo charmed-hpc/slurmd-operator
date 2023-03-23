@@ -24,7 +24,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-
       - name: woke
         uses: get-woke/woke-action@v0
         with:
@@ -67,7 +66,6 @@ jobs:
         uses: charmed-kubernetes/actions-operator@main
         with:
           provider: lxd
-          # Juju channel should eventually be updated to 3.0/stable
-          juju-channel: 2.9/stable
+          juju-channel: 3.1/stable
       - name: Run tests
         run: tox -e integration

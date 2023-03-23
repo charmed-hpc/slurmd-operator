@@ -28,6 +28,8 @@ SERIES = ["focal"]
 SLURMD = "slurmd"
 SLURMDBD = "slurmdbd"
 SLURMCTLD = "slurmctld"
+DATABASE = "mysql"
+ROUTER = "mysql-router"
 
 
 @pytest.mark.abort_on_fail
@@ -56,28 +58,30 @@ async def test_build_and_deploy(ops_test: OpsTest, series: str, slurmd_charm):
             series=series,
         ),
         ops_test.model.deploy(
-            "percona-cluster",
-            application_name="mysql",
+            ROUTER,
+            application_name=f"{SLURMDBD}-{ROUTER}",
+            channel="dpe/edge",
+            num_units=1,
+            series=series,
+        ),
+        ops_test.model.deploy(
+            DATABASE,
+            application_name=DATABASE,
             channel="edge",
             num_units=1,
-            series="bionic",
+            series="jammy",
         ),
     )
-
-    # Attach ETCD resource to the slurmctld controller
+    # Attach resources to charms.
     await ops_test.juju("attach-resource", SLURMCTLD, f"etcd={res_slurmctld['etcd']}")
-
-    # Add slurmdbd integration to slurmctld
-    await ops_test.model.relate(SLURMCTLD, SLURMDBD)
-
-    # Add mysql integration to slurmdbd
-    await ops_test.model.relate(SLURMDBD, "mysql")
-
+    # Set relations for charmed applications.
+    await ops_test.model.relate(f"{SLURMDBD}:{SLURMDBD}", f"{SLURMCTLD}:{SLURMDBD}")
+    await ops_test.model.relate(f"{SLURMDBD}-{ROUTER}:backend-database", f"{DATABASE}:database")
+    await ops_test.model.relate(f"{SLURMDBD}:database", f"{SLURMDBD}-{ROUTER}:database")
     # IMPORTANT: It's possible for slurmd to be stuck waiting for slurmctld despite slurmctld and slurmdbd
     # available. Relation between slurmd and slurmctld has to be added after slurmctld is ready
     # otherwise risk running into race-condition type behavior.
     await ops_test.model.wait_for_idle(apps=[SLURMCTLD], status="blocked", timeout=1000)
-
     # Build and Deploy Slurmd
     await ops_test.model.deploy(
         str(await slurmd_charm),
@@ -86,13 +90,10 @@ async def test_build_and_deploy(ops_test: OpsTest, series: str, slurmd_charm):
         resources=res_slurmd,
         series=series,
     )
-
-    # Attach NHC resource to the slurmd controller
+    # Attach resources to slurmd application.
     await ops_test.juju("attach-resource", SLURMD, f"nhc={res_slurmd['nhc']}")
-
-    # Add slurmctld integration to slurmd
-    await ops_test.model.relate(SLURMD, SLURMCTLD)
-
+    # Set relations for slurmd application.
+    await ops_test.model.relate(f"{SLURMD}:{SLURMD}", f"{SLURMCTLD}:{SLURMD}")
     # Reduce the update status frequency to accelerate the triggering of deferred events.
     async with ops_test.fast_forward():
         await ops_test.model.wait_for_idle(apps=[SLURMD], status="active", timeout=1000)
