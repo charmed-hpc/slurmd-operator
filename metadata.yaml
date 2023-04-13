@@ -1,38 +1,29 @@
 name: slurmd
-
 summary: |
-    Slurmd, the compute node daemon of Slurm.
-
+  Slurmd, the compute node daemon of Slurm.
+description: |
+  This charm provides slurmd, munged, and the bindings to other utilities
+  that make lifecycle operations a breeze.
+  
+  slurmd is the compute node daemon of SLURM. It monitors all tasks running
+  on the compute node, accepts work (tasks), launches tasks, and kills
+  running tasks upon request.
+source: https://github.com/omnivector-solutions/slurmd-operator
+issues: https://github.com/omnivector-solutions/slurmd-operator/issues
 maintainers:
     - OmniVector Solutions <admin@omnivector.solutions>
-
-description: |
-    This charm provides slurmd, munged, and the bindings to other utilities
-    that make lifecycle operations a breeze.
-
-    slurmd is the compute node daemon of SLURM. It monitors all tasks running
-    on the compute node, accepts work (tasks), launches tasks, and kills
-    running tasks upon request.
-
-tags:
-    - slurm
-    - hpc
-
-series:
-    - focal
-    - centos7
-
-provides:
-  slurmd:
-    interface: slurmd
-
-requires:
-  fluentbit:
-    interface: fluentbit
+    - Jason C. Nucciarone <jason.nucciarone@canonical.com>
+    - David Gomez <david.gomez@canonical.com>
 
 peers:
   slurmd-peer:
     interface: slurmd-peer
+requires:
+  fluentbit:
+    interface: fluentbit
+provides:
+  slurmd:
+    interface: slurmd
 
 resources:
   nhc:
@@ -40,3 +31,6 @@ resources:
      filename: lbnl-nhc-1.4.3.tar.gz
      description: |
        Official tarball containing NHC. Retrieved from Github Releases.
+
+assumes:
+  - juju
