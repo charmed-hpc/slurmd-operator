@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
+# Copyright 2020 Omnivector Solutions, LLC.
+# See LICENSE file for licensing details.
+
 """SlurmdCharm."""
+
 import json
 import logging
+import subprocess
 from pathlib import Path
 from time import sleep
 
@@ -12,7 +17,7 @@ from omnietcd3 import Etcd3AuthClient
 from ops.charm import CharmBase, CharmEvents
 from ops.framework import EventBase, EventSource, StoredState
 from ops.main import main
-from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
+from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
 from slurm_ops_manager import SlurmManager
 
 logger = logging.getLogger()
@@ -134,7 +139,7 @@ class SlurmdCharm(CharmBase):
         self._check_status()
 
     def _check_status(self) -> bool:
-        """Check if we heve all needed components.
+        """Check if we have all needed components.
 
         - partition name
         - slurm installed
@@ -142,7 +147,12 @@ class SlurmdCharm(CharmBase):
         - munge key configured and working
         """
         if self._slurm_manager.needs_reboot:
-            self.unit.status = BlockedStatus("Machine needs reboot")
+            try:
+                self.unit.status = MaintenanceStatus("Rebooting...")
+                logger.debug("Scheduling machine reboot")
+                subprocess.run(["juju-reboot"], check=True)
+            except subprocess.CalledProcessError:
+                logger.error("Failed to schedule machine reboot")
             return False
 
         if not self.get_partition_name():

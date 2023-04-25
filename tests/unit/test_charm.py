@@ -19,7 +19,7 @@ import unittest
 from unittest.mock import PropertyMock, patch
 
 from charm import SlurmdCharm
-from ops.model import ActiveStatus, BlockedStatus
+from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 from ops.testing import Harness
 
 
@@ -123,10 +123,11 @@ class TestCharm(unittest.TestCase):
     @patch(
         "slurm_ops_manager.SlurmManager.needs_reboot", new_callable=PropertyMock(return_value=True)
     )
-    def test_update_status_needs_reboot(self, _) -> None:
+    @patch("subprocess.run")
+    def test_update_status_needs_reboot(self, *_) -> None:
         """Test update_status failure behavior from reboot."""
         self.harness.charm.on.update_status.emit()
-        self.assertEqual(self.harness.charm.unit.status, BlockedStatus("Machine needs reboot"))
+        self.assertEqual(self.harness.charm.unit.status, MaintenanceStatus("Rebooting..."))
 
     @patch(
         "slurm_ops_manager.SlurmManager.needs_reboot",
