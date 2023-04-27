@@ -6,7 +6,6 @@
 
 import json
 import logging
-import subprocess
 from pathlib import Path
 from time import sleep
 
@@ -17,7 +16,7 @@ from omnietcd3 import Etcd3AuthClient
 from ops.charm import CharmBase, CharmEvents
 from ops.framework import EventBase, EventSource, StoredState
 from ops.main import main
-from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
+from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 from slurm_ops_manager import SlurmManager
 
 logger = logging.getLogger()
@@ -146,15 +145,6 @@ class SlurmdCharm(CharmBase):
         - slurmctld available and working
         - munge key configured and working
         """
-        if self._slurm_manager.needs_reboot:
-            try:
-                self.unit.status = MaintenanceStatus("Rebooting...")
-                logger.debug("Scheduling machine reboot")
-                subprocess.run(["juju-reboot"], check=True)
-            except subprocess.CalledProcessError:
-                logger.error("Failed to schedule machine reboot")
-            return False
-
         if not self.get_partition_name():
             self.unit.status = WaitingStatus("Waiting on charm configuration")
             return False

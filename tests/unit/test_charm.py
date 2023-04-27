@@ -19,7 +19,7 @@ import unittest
 from unittest.mock import PropertyMock, patch
 
 from charm import SlurmdCharm
-from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
+from ops.model import ActiveStatus, BlockedStatus
 from ops.testing import Harness
 
 
@@ -92,10 +92,6 @@ class TestCharm(unittest.TestCase):
         self.harness.charm.on.slurmd_start.emit()
         defer.assert_called()
 
-    @patch(
-        "slurm_ops_manager.SlurmManager.needs_reboot",
-        new_callable=PropertyMock(return_value=False),
-    )
     @patch("interface_slurmd.Slurmd.is_joined", new_callable=PropertyMock(return_value=True))
     @patch("slurm_ops_manager.SlurmManager.check_munged", return_value=True)
     @patch("slurm_ops_manager.SlurmManager.slurm_is_active", return_value=True)
@@ -111,28 +107,11 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(self.harness.charm.unit.status, ActiveStatus("slurmd available"))
         defer.assert_not_called()
 
-    @patch(
-        "slurm_ops_manager.SlurmManager.needs_reboot",
-        new_callable=PropertyMock(return_value=False),
-    )
-    def test_update_status_install_fail(self, _) -> None:
+    def test_update_status_install_fail(self) -> None:
         """Test update_status failure behavior from install."""
         self.harness.charm.on.update_status.emit()
         self.assertEqual(self.harness.charm.unit.status, BlockedStatus("Error installing slurmd"))
 
-    @patch(
-        "slurm_ops_manager.SlurmManager.needs_reboot", new_callable=PropertyMock(return_value=True)
-    )
-    @patch("subprocess.run")
-    def test_update_status_needs_reboot(self, *_) -> None:
-        """Test update_status failure behavior from reboot."""
-        self.harness.charm.on.update_status.emit()
-        self.assertEqual(self.harness.charm.unit.status, MaintenanceStatus("Rebooting..."))
-
-    @patch(
-        "slurm_ops_manager.SlurmManager.needs_reboot",
-        new_callable=PropertyMock(return_value=False),
-    )
     @patch("interface_slurmd.Slurmd.is_joined", new_callable=PropertyMock(return_value=True))
     @patch("slurm_ops_manager.SlurmManager.check_munged", return_value=True)
     def test_update_status_success(self, *_) -> None:
