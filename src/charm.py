@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
+# Copyright 2020 Omnivector Solutions, LLC.
+# See LICENSE file for licensing details.
+
 """SlurmdCharm."""
+
 import json
 import logging
 from pathlib import Path
@@ -134,17 +138,13 @@ class SlurmdCharm(CharmBase):
         self._check_status()
 
     def _check_status(self) -> bool:
-        """Check if we heve all needed components.
+        """Check if we have all needed components.
 
         - partition name
         - slurm installed
         - slurmctld available and working
         - munge key configured and working
         """
-        if self._slurm_manager.needs_reboot:
-            self.unit.status = BlockedStatus("Machine needs reboot")
-            return False
-
         if not self.get_partition_name():
             self.unit.status = WaitingStatus("Waiting on charm configuration")
             return False
