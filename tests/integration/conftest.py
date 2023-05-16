@@ -17,12 +17,25 @@
 
 import pathlib
 
+import pytest
+from _pytest.config.argparsing import Parser
 from helpers import ETCD, NHC, VERSION
-from pytest import fixture
 from pytest_operator.plugin import OpsTest
 
 
-@fixture(scope="module")
+def pytest_addoption(parser: Parser) -> None:
+    parser.addoption(
+        "--charm-base", action="store", default="ubuntu@22.04", help="Charm base to test."
+    )
+
+
+@pytest.fixture(scope="module")
+def charm_base(request) -> str:
+    """Get slurmdbd charm base to use."""
+    return request.config.getoption("--charm-base")
+
+
+@pytest.fixture(scope="module")
 async def slurmd_charm(ops_test: OpsTest):
     """Build slurmd charm to use for integration tests."""
     charm = await ops_test.build_charm(".")

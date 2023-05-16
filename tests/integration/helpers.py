@@ -21,6 +21,8 @@ import subprocess
 from typing import Dict
 from urllib import request
 
+from pylxd import Client
+
 logger = logging.getLogger(__name__)
 
 ETCD = "etcd-v3.5.0-linux-amd64.tar.gz"
@@ -33,13 +35,28 @@ VERSION_NUM = subprocess.run(
 ).stdout.strip("\n")
 
 
+def modify_default_profile() -> None:
+    """Modify the default LXD profile.
+
+    Notes:
+        The default profile needs to be modified so that slurmd can
+        use proctrack/cgroup for process tracking inside an LXD container.
+    """
+    client = Client()
+    config = {"security.nesting": "true"}
+    logger.info(f"Updating default LXD profile configuration to {config}")
+    default = client.profiles.get("default")
+    default.config.update(config)
+    default.save()
+
+
 def get_slurmctld_res() -> Dict[str, pathlib.Path]:
     """Get slurmctld resources needed for charm deployment."""
     if not (version := pathlib.Path(VERSION)).exists():
-        logger.info(f"Setting resource {VERSION} to value {VERSION_NUM}...")
+        logger.info(f"Setting resource {VERSION} to value {VERSION_NUM}")
         version.write_text(VERSION_NUM)
     if not (etcd := pathlib.Path(ETCD)).exists():
-        logger.info(f"Getting resource {ETCD} from {ETCD_URL}...")
+        logger.info(f"Getting resource {ETCD} from {ETCD_URL}")
         request.urlretrieve(ETCD_URL, etcd)
 
     return {"etcd": etcd}
@@ -48,7 +65,7 @@ def get_slurmctld_res() -> Dict[str, pathlib.Path]:
 def get_slurmd_res() -> Dict[str, pathlib.Path]:
     """Get slurmd resources needed for charm deployment."""
     if not (nhc := pathlib.Path(NHC)).exists():
-        logger.info(f"Getting resource {NHC} from {NHC_URL}...")
+        logger.info(f"Getting resource {NHC} from {NHC_URL}")
         request.urlretrieve(NHC_URL, nhc)
 
     return {"nhc": nhc}
