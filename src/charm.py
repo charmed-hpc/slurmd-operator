@@ -405,8 +405,8 @@ class SlurmdCharm(CharmBase):
             if self._slurmd.is_joined:
                 if partition := {
                     "partition_name": self.app.name,
-                    "partition_state": self.config.get("partition-config"),
-                    "partition_config": self.config.get("partition-state"),
+                    "partition_config": self.config.get("partition-config"),
+                    "partition_state": self.config.get("partition-state"),
                 }:
                     self._slurmd.set_partition_info_on_app_relation_data(partition)
                 else:
