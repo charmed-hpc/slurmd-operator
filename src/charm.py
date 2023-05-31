@@ -143,10 +143,6 @@ class SlurmdCharm(CharmBase):
         - slurmctld available and working
         - munge key configured and working
         """
-        if self.config.get("partition-name"):
-            self.unit.status = WaitingStatus("Waiting on charm configuration")
-            return False
-
         if not self._stored.slurm_installed:
             self.unit.status = BlockedStatus("Error installing slurmd")
             return False
@@ -408,7 +404,7 @@ class SlurmdCharm(CharmBase):
             # but add this extra check here just in case.
             if self._slurmd.is_joined:
                 if partition := {
-                    "partition_name": self.config.get("partition-name"),
+                    "partition_name": self.app.name,
                     "partition_state": self.config.get("partition-config"),
                     "partition_config": self.config.get("partition-state"),
                 }:
