@@ -15,9 +15,6 @@ maintainers:
     - Jason C. Nucciarone <jason.nucciarone@canonical.com>
     - David Gomez <david.gomez@canonical.com>
 
-peers:
-  slurmd-peer:
-    interface: slurmd-peer
 requires:
   fluentbit:
     interface: fluentbit

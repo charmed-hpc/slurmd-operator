@@ -16,12 +16,9 @@
 
 import logging
 import pathlib
-import shlex
 import subprocess
 from typing import Dict
 from urllib import request
-
-from pylxd import Client
 
 logger = logging.getLogger(__name__)
 
@@ -29,25 +26,11 @@ ETCD = "etcd-v3.5.0-linux-amd64.tar.gz"
 ETCD_URL = f"https://github.com/etcd-io/etcd/releases/download/v3.5.0/{ETCD}"
 NHC = "lbnl-nhc-1.4.3.tar.gz"
 NHC_URL = f"https://github.com/mej/nhc/releases/download/1.4.3/{NHC}"
+OVERLAY = "overlay.yaml"
 VERSION = "version"
 VERSION_NUM = subprocess.run(
-    shlex.split("git describe --always"), stdout=subprocess.PIPE, text=True
+    ["git", "describe", "--always"], stdout=subprocess.PIPE, text=True
 ).stdout.strip("\n")
-
-
-def modify_default_profile() -> None:
-    """Modify the default LXD profile.
-
-    Notes:
-        The default profile needs to be modified so that slurmd can
-        use proctrack/cgroup for process tracking inside an LXD container.
-    """
-    client = Client()
-    config = {"security.nesting": "true"}
-    logger.info(f"Updating default LXD profile configuration to {config}")
-    default = client.profiles.get("default")
-    default.config.update(config)
-    default.save()
 
 
 def get_slurmctld_res() -> Dict[str, pathlib.Path]:

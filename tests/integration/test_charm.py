@@ -21,7 +21,7 @@ import pathlib
 from typing import Any, Coroutine
 
 import pytest
-from helpers import get_slurmctld_res, get_slurmd_res, modify_default_profile
+from helpers import get_slurmctld_res, get_slurmd_res
 from pytest_operator.plugin import OpsTest
 
 logger = logging.getLogger(__name__)
@@ -41,13 +41,13 @@ async def test_build_and_deploy(
 ) -> None:
     """Test that the slurmd charm can stabilize against slurmctld, slurmdbd and MySQL."""
     logger.info(f"Deploying {SLURMD} against {SLURMCTLD}, {SLURMDBD}, and {DATABASE}")
-    modify_default_profile()
     res_slurmd = get_slurmd_res()
     res_slurmctld = get_slurmctld_res()
     await asyncio.gather(
         ops_test.model.deploy(
             SLURMCTLD,
             application_name=SLURMCTLD,
+            config={"proctrack-type": "proctrack/linuxproc"},
             channel="edge",
             num_units=1,
             resources=res_slurmctld,

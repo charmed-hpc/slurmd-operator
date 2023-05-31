@@ -11,7 +11,6 @@ from time import sleep
 
 from charms.fluentbit.v0.fluentbit import FluentbitClient
 from interface_slurmd import Slurmd
-from interface_slurmd_peer import SlurmdPeer
 from omnietcd3 import Etcd3AuthClient
 from ops.charm import CharmBase, CharmEvents
 from ops.framework import EventBase, EventSource, StoredState
@@ -68,7 +67,6 @@ class SlurmdCharm(CharmBase):
 
         # interface to slurmctld, should only have one slurmctld per slurmd app
         self._slurmd = Slurmd(self, "slurmd")
-        self._slurmd_peer = SlurmdPeer(self, "slurmd-peer")
 
         event_handler_bindings = {
             self.on.install: self._on_install,
@@ -145,10 +143,6 @@ class SlurmdCharm(CharmBase):
         - slurmctld available and working
         - munge key configured and working
         """
-        if not self.get_partition_name():
-            self.unit.status = WaitingStatus("Waiting on charm configuration")
-            return False
-
         if not self._stored.slurm_installed:
             self.unit.status = BlockedStatus("Error installing slurmd")
             return False
@@ -345,35 +339,6 @@ class SlurmdCharm(CharmBase):
                 self._stored.nhc_conf = nhc_conf
                 self._slurm_manager.render_nhc_config(nhc_conf)
 
-    def get_partition_name(self) -> str:
-        """Return the partition_name in the slurmd relation."""
-        # Determine if a user-supplied partition-name config exists, if so
-        # ensure the partition_name is consistent with the supplied config.
-        # If no partition name has been specified then generate one.
-        partition_name = self._slurmd_peer.partition_name
-        partition_name_from_config = self.config.get("partition-name")
-        if partition_name:
-            if partition_name_from_config:
-                partition_name_from_config = partition_name_from_config.replace(" ", "-")
-                if partition_name != partition_name_from_config:
-                    self._set_partition_name(partition_name_from_config)
-                    partition_name = partition_name_from_config
-                else:
-                    logger.debug("Partition name unchanged.")
-            else:
-                logger.debug("Partition name unchanged.")
-        else:
-            partition_name = f"osd-{self.app.name}"
-            logger.debug(f"Partition name: {partition_name}")
-            self._set_partition_name(partition_name)
-
-        return partition_name
-
-    def _set_partition_name(self, name: str):
-        """Set the partition_name in the slurmd relation."""
-        if self.model.unit.is_leader():
-            self._slurmd_peer.partition_name = name
-
     def _write_munge_key_and_restart_munge(self):
         logger.debug("#### slurmd charm - writing munge key")
 
@@ -438,26 +403,16 @@ class SlurmdCharm(CharmBase):
             # This handler shouldn't fire if the relation isn't made,
             # but add this extra check here just in case.
             if self._slurmd.is_joined:
-                partition = self._assemble_partition()
-                if partition:
+                if partition := {
+                    "partition_name": self.app.name,
+                    "partition_state": self.config.get("partition-config"),
+                    "partition_config": self.config.get("partition-state"),
+                }:
                     self._slurmd.set_partition_info_on_app_relation_data(partition)
                 else:
                     event.defer()
             else:
                 event.defer()
-
-    def _assemble_partition(self):
-        """Assemble the partition info."""
-        partition_name = self.get_partition_name()
-        partition_config = self.config.get("partition-config")
-        partition_state = self.config.get("partition-state")
-        logger.debug(f"## partition_name: {partition_name}")
-
-        return {
-            "partition_name": partition_name,
-            "partition_state": partition_state,
-            "partition_config": partition_config,
-        }
 
     @property
     def hostname(self) -> str:
