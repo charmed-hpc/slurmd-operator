@@ -15,14 +15,6 @@ options:
       Note: The configuration `custom-slurm-repo` must be set *before*
       deploying the units. Changing this value after deploying the units will
       not reinstall Slurm.
-  partition-name:
-    type: string
-    default:
-    description: >
-      Name by which the partition may be referenced (e.g. `Interactive`).
-
-      Note: The partition name should only contain letters, numbers, and
-      hyphens. Spaces are not allowed.
   partition-config:
     type: string
     default: ""
