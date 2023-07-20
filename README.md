@@ -17,6 +17,8 @@ The slurmctld operator provides and manages the slurmd daemon. This operator pro
 
 ## Usage
 
+This operator should be used with Juju 3.x or greater.
+
 #### Deploy a minimal Charmed SLURM cluster
 
 ```shell
