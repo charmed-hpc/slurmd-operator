@@ -5,7 +5,7 @@
 A [Juju](https://juju.is) operator for slurmd - the compute node daemon of [SLURM](https://slurm.schedmd.com/overview.html).
 
 [![Charmhub Badge](https://charmhub.io/slurmd/badge.svg)](https://charmhub.io/slurmd)
-[![CI](https://github.com/omnivector-solutions/slurmd-operator/actions/workflows/ci.yaml/badge.svg)](https://github.com/omnivector-solutions/slurmd/actions/workflows/ci.yaml/badge.svg)
+[![CI](https://github.com/omnivector-solutions/slurmd-operator/actions/workflows/ci.yaml/badge.svg)](https://github.com/omnivector-solutions/slurmd-operator/actions/workflows/ci.yaml/badge.svg)
 [![Release](https://github.com/omnivector-solutions/slurmd-operator/actions/workflows/release.yaml/badge.svg)](https://github.com/omnivector-solutions/slurmd-operator/actions/workflows/release.yaml/badge.svg)
 [![Matrix](https://img.shields.io/matrix/ubuntu-hpc%3Amatrix.org?logo=matrix&label=ubuntu-hpc)](https://matrix.to/#/#ubuntu-hpc:matrix.org)
 
@@ -16,6 +16,8 @@ A [Juju](https://juju.is) operator for slurmd - the compute node daemon of [SLUR
 The slurmctld operator provides and manages the slurmd daemon. This operator provides the compute node service for virtual machines enlisted as compute nodes in Charmed SLURM clusters.
 
 ## Usage
+
+#### Deploy a minimal Charmed SLURM cluster
 
 ```shell
 $ juju deploy slurmctld --channel edge
