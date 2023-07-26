@@ -13,7 +13,7 @@ A [Juju](https://juju.is) operator for slurmd - the compute node daemon of [SLUR
 
 ## Features
 
-The slurmctld operator provides and manages the slurmd daemon. This operator provides the compute node service for virtual machines enlisted as compute nodes in Charmed SLURM clusters.
+The slurmd operator provides and manages the slurmd daemon. This operator provides the compute node service for machines enlisted as compute nodes in Charmed SLURM clusters.
 
 ## Usage
 
