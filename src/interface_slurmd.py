@@ -11,7 +11,7 @@ from ops.framework import (
     StoredState,
 )
 from ops.model import Relation
-from utils import get_inventory
+from utils import machine
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,6 @@ class Slurmd(Object):
             slurmctld_hostname=str(),
             slurmctld_addr=str(),
             slurmctld_port=str(),
-            etcd_port=str(),
             nhc_params=str(),
         )
 
@@ -81,15 +80,15 @@ class Slurmd(Object):
         node_name = self._charm.hostname
         node_addr = event.relation.data[self.model.unit]["ingress-address"]
 
-        inv = get_inventory(node_name, node_addr)
+        inv = machine.get_inventory(node_name, node_addr)
         inv["new_node"] = True
         self.node_inventory = inv
 
     def _on_relation_joined(self, event):
         """Handle the relation-joined event.
 
-        Get the munge_key, slurmctld_host and slurmctld_port, etcd port, NHC
-        params, the cluster name from slurmctld and save it to the charm stored
+        Get the munge_key, slurmctld_host and slurmctld_port, NHC params,
+        the cluster name from slurmctld and save it to the charm stored
         state.
         """
         app_data = event.relation.data[event.app]
@@ -107,14 +106,10 @@ class Slurmd(Object):
         self._store_slurmctld_host_port(
             app_data["slurmctld_host"], app_data["slurmctld_port"], slurmctld_addr
         )
-        self.etcd_port = app_data["etcd_port"]
 
         self._charm.cluster_name = app_data.get("cluster_name")
 
         self._store_nhc_params(app_data.get("nhc_params"))
-
-        self._charm.store_etcd_slurmd_pass(app_data.get("etcd_slurmd_pass"))
-        self._store_tls_params(app_data.get("tls_cert"), app_data.get("ca_cert"))
 
         self.on.slurmctld_available.emit()
 
@@ -127,7 +122,6 @@ class Slurmd(Object):
         """
         app_data = event.relation.data[event.app]
         self._store_nhc_params(app_data.get("nhc_params"))
-        self._store_tls_params(app_data.get("tls_cert"), app_data.get("ca_cert"))
 
     def _on_relation_broken(self, event):
         """Perform relation broken operations."""
@@ -190,15 +184,6 @@ class Slurmd(Object):
             logger.debug(f"## rendering /usr/sbin/omni-nhc-wrapper: {params}")
             self._charm._slurm_manager.render_nhc_wrapper(params)
 
-    def _store_tls_params(self, tls_cert: str, ca_cert: str = ""):
-        """Store TLS certificates in the charm storedState."""
-        logger.debug(f"## storing new tls params: {bool(tls_cert)}, {bool(ca_cert)}")
-        if tls_cert != self._charm.etcd_tls_cert:
-            self._charm.etcd_tls_cert = tls_cert
-
-        if ca_cert != self._charm.etcd_ca_cert:
-            self._charm.etcd_ca_cert = ca_cert
-
     @property
     def slurmctld_address(self) -> str:
         """Get slurmctld IP address."""
@@ -208,17 +193,6 @@ class Slurmd(Object):
     def slurmctld_address(self, addr: str):
         """Set slurmctld IP address."""
         self._stored.slurmctld_addr = addr
-
-    @property
-    def etcd_port(self) -> str:
-        """Return the port for etcd."""
-        return self._stored.etcd_port
-
-    @etcd_port.setter
-    def etcd_port(self, port: str):
-        """Set the port for etcd."""
-        logger.debug(f"## Setting etcd port {port}")
-        self._stored.etcd_port = port
 
     def _store_slurmctld_host_port(self, host: str, port: str, addr: str):
         """Store the hostname, port and IP of slurmctld in StoredState."""

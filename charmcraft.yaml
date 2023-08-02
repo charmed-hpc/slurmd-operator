@@ -1,3 +1,6 @@
+# Copyright 2020 Omnivector, LLC
+# See LICENSE file for licensing details.
+
 type: charm
 bases:
   - build-on:
@@ -13,6 +16,7 @@ bases:
       - name: centos
         channel: "7"
         architectures: [amd64]
+
 parts:
   charm:
     build-packages: [git]

@@ -15,15 +15,16 @@
 
 """Configure integration test run."""
 
-import pathlib
+from pathlib import Path
 
 import pytest
-from _pytest.config.argparsing import Parser
-from helpers import ETCD, NHC, VERSION
+from helpers import NHC, VERSION
 from pytest_operator.plugin import OpsTest
 
+PARENT_DIR = Path.cwd().parent
 
-def pytest_addoption(parser: Parser) -> None:
+
+def pytest_addoption(parser):
     parser.addoption(
         "--charm-base", action="store", default="ubuntu@22.04", help="Charm base to test."
     )
@@ -38,12 +39,36 @@ def charm_base(request) -> str:
 @pytest.fixture(scope="module")
 async def slurmd_charm(ops_test: OpsTest):
     """Build slurmd charm to use for integration tests."""
-    charm = await ops_test.build_charm(".")
-    return charm
+    return await ops_test.build_charm(".")
+
+
+@pytest.fixture(scope="module")
+async def slurmctld_charm(ops_test: OpsTest):
+    """Build slurmctld charm to use for integration tests.
+
+    Notes:
+        Returns string "slurmctld" if ../slurmrestd-operator does not exist.
+    """
+    if (slurmctld := PARENT_DIR / "slurmctld-operator").exists():
+        return await ops_test.build_charm(slurmctld)
+
+    return "slurmctld"
+
+
+@pytest.fixture(scope="module")
+async def slurmdbd_charm(ops_test: OpsTest):
+    """Build slurmdbd charm to use for integration tests.
+
+    Notes:
+        Returns string "slurmdbd" if ../slurmrestd-operator does not exist.
+    """
+    if (slurmctld := PARENT_DIR / "slurmdbd-operator").exists():
+        return await ops_test.build_charm(slurmctld)
+
+    return "slurmdbd"
 
 
 def pytest_sessionfinish(session, exitstatus) -> None:
     """Clean up repository after test session has completed."""
-    pathlib.Path(ETCD).unlink(missing_ok=True)
-    pathlib.Path(NHC).unlink(missing_ok=True)
-    pathlib.Path(VERSION).unlink(missing_ok=True)
+    Path(NHC).unlink(missing_ok=True)
+    Path(VERSION).unlink(missing_ok=True)

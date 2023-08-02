@@ -4,52 +4,34 @@
 
 """SlurmdCharm."""
 
-import json
 import logging
 from pathlib import Path
-from time import sleep
 
 from charms.fluentbit.v0.fluentbit import FluentbitClient
+from charms.hpc_libs.v0.juju_systemd_notices import (
+    ServiceStartedEvent,
+    ServiceStoppedEvent,
+    SystemdNotices,
+)
 from interface_slurmd import Slurmd
-from omnietcd3 import Etcd3AuthClient
-from ops.charm import CharmBase, CharmEvents
-from ops.framework import EventBase, EventSource, StoredState
+from ops.charm import CharmBase
+from ops.framework import StoredState
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 from slurm_ops_manager import SlurmManager
+from utils import slurmd
 
-logger = logging.getLogger()
-
-
-class SlurmdStart(EventBase):
-    """Emitted when slurmd should start."""
-
-
-class SlurmctldStarted(EventBase):
-    """Emitted when slurmd should start."""
-
-
-class CheckEtcd(EventBase):
-    """Emitted when slurmd should start."""
-
-
-class SlurmdCharmEvents(CharmEvents):
-    """Slurmd emitted events."""
-
-    slurmd_start = EventSource(SlurmdStart)
-    slurmctld_started = EventSource(SlurmctldStarted)
-    check_etcd = EventSource(CheckEtcd)
+logger = logging.getLogger(__name__)
 
 
 class SlurmdCharm(CharmBase):
     """Slurmd lifecycle events."""
 
     _stored = StoredState()
-    on = SlurmdCharmEvents()
 
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         """Init _stored attributes and interfaces, observe events."""
-        super().__init__(*args)
+        super().__init__(*args, **kwargs)
 
         self._stored.set_default(
             nhc_conf=str(),
@@ -57,25 +39,21 @@ class SlurmdCharm(CharmBase):
             slurmctld_available=False,
             slurmctld_started=False,
             cluster_name=str(),
-            etcd_slurmd_pass=str(),
-            etcd_tls_cert=str(),
-            etcd_ca_cert=str(),
         )
 
         self._slurm_manager = SlurmManager(self, "slurmd")
         self._fluentbit = FluentbitClient(self, "fluentbit")
-
         # interface to slurmctld, should only have one slurmctld per slurmd app
         self._slurmd = Slurmd(self, "slurmd")
+        self._systemd_notices = SystemdNotices(self, ["slurmd"])
 
         event_handler_bindings = {
             self.on.install: self._on_install,
             self.on.upgrade_charm: self._on_upgrade,
             self.on.update_status: self._on_update_status,
             self.on.config_changed: self._on_config_changed,
-            self.on.slurmctld_started: self._on_slurmctld_started,
-            self.on.slurmd_start: self._on_slurmd_start,
-            self.on.check_etcd: self._on_check_etcd,
+            self.on.service_slurmd_started: self._on_slurmd_started,
+            self.on.service_slurmd_stopped: self._on_slurmd_stopped,
             self._slurmd.on.slurmctld_available: self._on_slurmctld_available,
             self._slurmd.on.slurmctld_unavailable: self._on_slurmctld_unavailable,
             # fluentbit
@@ -103,13 +81,15 @@ class SlurmdCharm(CharmBase):
 
         self.unit.set_workload_version(Path("version").read_text().strip())
         self.unit.status = WaitingStatus("Installing slurmd")
-
-        custom_repo = self.config.get("custom-slurm-repo")
-        successful_installation = self._slurm_manager.install(custom_repo, nhc_path)
+        successful_installation = self._slurm_manager.install(
+            self.config.get("custom-slurm-repo"), nhc_path
+        )
+        slurmd.override_service()
         logger.debug(f"### slurmd installed: {successful_installation}")
 
         if successful_installation:
             self._stored.slurm_installed = True
+            self._systemd_notices.subscribe()
         else:
             self.unit.status = BlockedStatus("Error installing slurmd")
             event.defer()
@@ -159,41 +139,11 @@ class SlurmdCharm(CharmBase):
             self.unit.status = BlockedStatus("Error configuring munge key")
             return False
 
-        if not self._stored.slurmctld_started:
-            self.unit.status = WaitingStatus("Waiting slurmctld to start")
-            return False
-
-        self.unit.status = ActiveStatus("slurmd available")
         return True
-
-    def ensure_slurmd_starts(self, max_attemps=10) -> bool:
-        """Ensure slurmd is up and running."""
-        logger.debug("## Stopping slurmd")
-        self._slurm_manager.slurm_systemctl("stop")
-
-        for i in range(max_attemps):
-            if self._slurm_manager.slurm_is_active():
-                logger.debug("## Slurmd running")
-                break
-            else:
-                logger.warning("## Slurmd not running, trying to start it")
-                self.unit.status = WaitingStatus("Starting slurmd")
-                self._slurm_manager.restart_slurm_component()
-                sleep(2 + i)
-
-        if self._slurm_manager.slurm_is_active():
-            return True
-        else:
-            self.unit.status = BlockedStatus("Cannot start slurmd")
-            return False
 
     def _set_slurmctld_available(self, flag: bool):
         """Change stored value for slurmctld availability."""
         self._stored.slurmctld_available = flag
-
-    def _set_slurmctld_started(self, flag: bool):
-        """Change stored value for slurmctld started."""
-        self._stored.slurmctld_started = flag
 
     def _on_slurmctld_available(self, event):
         """Get data from slurmctld and send inventory."""
@@ -202,130 +152,30 @@ class SlurmdCharm(CharmBase):
             return
 
         logger.debug("#### Slurmctld available - setting overrides for configless")
-        # get slurmctld host:port from relation and override systemd services
-        host = self._slurmd.slurmctld_hostname
-        port = self._slurmd.slurmctld_port
-        self._slurm_manager.create_configless_systemd_override(host, port)
-        self._slurm_manager.daemon_reload()
-
-        self._write_munge_key_and_restart_munge()
-
         self._set_slurmctld_available(True)
+        # Get slurmctld host:port from relation and override systemd services.
+        slurmd.override_default(self._slurmd.slurmctld_hostname, self._slurmd.slurmctld_port)
         self._on_set_partition_info_on_app_relation_data(event)
+        self._write_munge_key_and_restart_munge()
+        # Only set up fluentbit if we have a relation to it.
+        if self._fluentbit._relation is not None:
+            self._configure_fluentbit()
+        slurmd.restart()
         self._check_status()
-
-        # check etcd for hostnames
-        self.on.check_etcd.emit()
-
-    @property
-    def etcd_use_tls(self) -> bool:
-        """Return whether TLS certificates are available."""
-        return bool(self.etcd_tls_cert)
-
-    @property
-    def etcd_tls_cert(self) -> str:
-        """Return TLS certificate."""
-        return self._stored.etcd_tls_cert
-
-    @etcd_tls_cert.setter
-    def etcd_tls_cert(self, tls_cert: str):
-        """Store TLS certificate."""
-        self._stored.etcd_tls_cert = tls_cert
-
-    @property
-    def etcd_ca_cert(self) -> str:
-        """Return CA TLS certificate."""
-        return self._stored.etcd_ca_cert
-
-    @etcd_ca_cert.setter
-    def etcd_ca_cert(self, ca_cert: str):
-        """Store CA TLS certificate."""
-        self._stored.etcd_ca_cert = ca_cert
-
-    def _on_check_etcd(self, event):
-        """Check if node is accounted for.
-
-        Check if slurmctld accounted for this node's inventory for the first
-        time, if so, emit slurmctld_started event, so the node can start the
-        daemon.
-        """
-        host = self._slurmd.slurmctld_address
-        port = self._slurmd.etcd_port
-
-        username = "slurmd"
-        password = self._stored.etcd_slurmd_pass
-
-        protocol = "http"
-        ca_cert = None
-        if self.etcd_use_tls:
-            protocol = "https"
-            ca_cert = Path("/etc/slurm/tls_cert.crt")
-            ca_cert.write_text(self.etcd_tls_cert)
-            ca_cert = Path.as_posix()
-        if self.etcd_ca_cert:
-            ca_cert = Path("/etc/slurm/ca_cert.crt")
-            ca_cert.write_text(self.etcd_ca_cert)
-            ca_cert = Path.as_posix()
-
-        logger.debug(f"## Connecting to etcd3 in {protocol}://{host}:{port}, {ca_cert}")
-        client = Etcd3AuthClient(
-            host=host,
-            port=port,
-            protocol=protocol,
-            ca_cert=ca_cert,
-            username=username,
-            password=password,
-        )
-
-        logger.debug("## Querying etcd3 for node list")
-        try:
-            v = client.get(key="nodes/all_nodes")
-            logger.debug(f"## Got: {v}")
-        except Exception as e:
-            logger.error(f"## Unable to connect to {host} to get list of nodes: {e}")
-            event.defer()
-            return
-
-        node_accounted = False
-        if v:
-            hostnames = json.loads(v[0])
-            logger.debug(f"### etcd3 node list: {hostnames}")
-            if self.hostname in hostnames:
-                self.on.slurmctld_started.emit()
-                node_accounted = True
-
-        if not node_accounted:
-            logger.debug("## Node not accounted for. Deferring.")
-            event.defer()
 
     def _on_slurmctld_unavailable(self, event):
         logger.debug("## Slurmctld unavailable")
         self._set_slurmctld_available(False)
-        self._set_slurmctld_started(False)
-        self._slurm_manager.slurm_systemctl("stop")
+        slurmd.stop()
         self._check_status()
 
-    def _on_slurmctld_started(self, event):
-        """Set flag to True and emit slurmd_start event."""
-        self._set_slurmctld_started(True)
-        self.on.slurmd_start.emit()
+    def _on_slurmd_started(self, _: ServiceStartedEvent) -> None:
+        """Handle event emitted by systemd after slurmd daemon successfully starts."""
+        self.unit.status = ActiveStatus()
 
-    def _on_slurmd_start(self, event):
-        if not self._check_status():
-            event.defer()
-            return
-
-        # only set up fluentbit if we have a relation to it
-        if self._fluentbit._relation is not None:
-            self._configure_fluentbit()
-
-        # at this point, we have slurm installed, munge configured, and we know
-        # slurmctld accounted for this node. It should be safe to start slurmd
-        if self.ensure_slurmd_starts():
-            logger.debug("## slurmctld started and slurmd is running")
-        else:
-            event.defer()
-        self._check_status()
+    def _on_slurmd_stopped(self, _: ServiceStoppedEvent) -> None:
+        """Handle event emitted by systemd after slurmd daemon is stopped."""
+        self.unit.status = BlockedStatus("slurmd off")
 
     def _on_config_changed(self, event):
         """Handle charm configuration changes."""
@@ -429,10 +279,6 @@ class SlurmdCharm(CharmBase):
         """Set the cluster-name."""
         self._stored.cluster_name = name
 
-    def store_etcd_slurmd_pass(self, password: str):
-        """Save the slurmd password for etcd in the stored state."""
-        self._stored.etcd_slurmd_pass = password
 
-
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: nocover
     main(SlurmdCharm)

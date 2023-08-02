@@ -1,5 +1,8 @@
-#!/usr/bin/env python3
-"""utils.py module for slurmd charm."""
+# Copyright 2020 Omnivector Solutions, LLC.
+# See LICENSE file for licensing details.
+
+"""machine.py module for slurmd charm."""
+
 import os
 import subprocess
 import sys

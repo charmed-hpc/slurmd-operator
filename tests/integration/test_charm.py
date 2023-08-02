@@ -21,7 +21,7 @@ import pathlib
 from typing import Any, Coroutine
 
 import pytest
-from helpers import get_slurmctld_res, get_slurmd_res
+from helpers import get_slurmd_res
 from pytest_operator.plugin import OpsTest
 
 logger = logging.getLogger(__name__)
@@ -37,26 +37,27 @@ ROUTER = "mysql-router"
 @pytest.mark.skip_if_deployed
 @pytest.mark.order(1)
 async def test_build_and_deploy(
-    ops_test: OpsTest, slurmd_charm: Coroutine[Any, Any, pathlib.Path], charm_base: str
+    ops_test: OpsTest,
+    slurmd_charm: Coroutine[Any, Any, pathlib.Path],
+    slurmctld_charm: Coroutine[Any, Any, pathlib.Path],
+    slurmdbd_charm: Coroutine[Any, Any, pathlib.Path],
+    charm_base: str,
 ) -> None:
     """Test that the slurmd charm can stabilize against slurmctld, slurmdbd and MySQL."""
     logger.info(f"Deploying {SLURMD} against {SLURMCTLD}, {SLURMDBD}, and {DATABASE}")
-    res_slurmd = get_slurmd_res()
-    res_slurmctld = get_slurmctld_res()
     await asyncio.gather(
         ops_test.model.deploy(
-            SLURMCTLD,
+            str(slurmctld := await slurmctld_charm),
             application_name=SLURMCTLD,
             config={"proctrack-type": "proctrack/linuxproc"},
-            channel="edge",
+            channel="edge" if isinstance(slurmctld, str) else None,
             num_units=1,
-            resources=res_slurmctld,
             base=charm_base,
         ),
         ops_test.model.deploy(
-            SLURMDBD,
+            str(slurmdbd := await slurmdbd_charm),
             application_name=SLURMDBD,
-            channel="edge",
+            channel="edge" if isinstance(slurmdbd, str) else None,
             num_units=1,
             base=charm_base,
         ),
@@ -75,17 +76,16 @@ async def test_build_and_deploy(
             base="ubuntu@22.04",
         ),
     )
-    # Attach resources to charms.
-    await ops_test.juju("attach-resource", SLURMCTLD, f"etcd={res_slurmctld['etcd']}")
     # Set relations for charmed applications.
     await ops_test.model.integrate(f"{SLURMDBD}:{SLURMDBD}", f"{SLURMCTLD}:{SLURMDBD}")
     await ops_test.model.integrate(f"{SLURMDBD}-{ROUTER}:backend-database", f"{DATABASE}:database")
     await ops_test.model.integrate(f"{SLURMDBD}:database", f"{SLURMDBD}-{ROUTER}:database")
-    # IMPORTANT: It's possible for slurmd to be stuck waiting for slurmctld despite slurmctld and slurmdbd
-    # available. Relation between slurmd and slurmctld has to be added after slurmctld is ready
-    # otherwise risk running into race-condition type behavior.
+    # IMPORTANT: It's possible for slurmd to be stuck waiting for slurmctld despite slurmctld and
+    # slurmdbd available. Relation between slurmd and slurmctld has to be added after slurmctld
+    # is ready otherwise risk running into race-condition type behavior.
     await ops_test.model.wait_for_idle(apps=[SLURMCTLD], status="blocked", timeout=1000)
     # Build and Deploy Slurmd
+    res_slurmd = get_slurmd_res()
     await ops_test.model.deploy(
         str(await slurmd_charm),
         application_name=SLURMD,
