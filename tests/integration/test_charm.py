@@ -45,7 +45,15 @@ async def test_build_and_deploy(
 ) -> None:
     """Test that the slurmd charm can stabilize against slurmctld, slurmdbd and MySQL."""
     logger.info(f"Deploying {SLURMD} against {SLURMCTLD}, {SLURMDBD}, and {DATABASE}")
+    res_slurmd = get_slurmd_res()
     await asyncio.gather(
+        ops_test.model.deploy(
+            str(await slurmd_charm),
+            application_name=SLURMD,
+            num_units=1,
+            resources=res_slurmd,
+            base=charm_base,
+        ),
         ops_test.model.deploy(
             str(slurmctld := await slurmctld_charm),
             application_name=SLURMCTLD,
@@ -76,27 +84,13 @@ async def test_build_and_deploy(
             base="ubuntu@22.04",
         ),
     )
+    # Attach resources to slurmd application.
+    await ops_test.juju("attach-resource", SLURMD, f"nhc={res_slurmd['nhc']}")
     # Set relations for charmed applications.
+    await ops_test.model.integrate(f"{SLURMD}:{SLURMD}", f"{SLURMCTLD}:{SLURMD}")
     await ops_test.model.integrate(f"{SLURMDBD}:{SLURMDBD}", f"{SLURMCTLD}:{SLURMDBD}")
     await ops_test.model.integrate(f"{SLURMDBD}-{ROUTER}:backend-database", f"{DATABASE}:database")
     await ops_test.model.integrate(f"{SLURMDBD}:database", f"{SLURMDBD}-{ROUTER}:database")
-    # IMPORTANT: It's possible for slurmd to be stuck waiting for slurmctld despite slurmctld and
-    # slurmdbd available. Relation between slurmd and slurmctld has to be added after slurmctld
-    # is ready otherwise risk running into race-condition type behavior.
-    await ops_test.model.wait_for_idle(apps=[SLURMCTLD], status="blocked", timeout=1000)
-    # Build and Deploy Slurmd
-    res_slurmd = get_slurmd_res()
-    await ops_test.model.deploy(
-        str(await slurmd_charm),
-        application_name=SLURMD,
-        num_units=1,
-        resources=res_slurmd,
-        base=charm_base,
-    )
-    # Attach resources to slurmd application.
-    await ops_test.juju("attach-resource", SLURMD, f"nhc={res_slurmd['nhc']}")
-    # Set relations for slurmd application.
-    await ops_test.model.integrate(f"{SLURMD}:{SLURMD}", f"{SLURMCTLD}:{SLURMD}")
     # Reduce the update status frequency to accelerate the triggering of deferred events.
     async with ops_test.fast_forward():
         await ops_test.model.wait_for_idle(apps=[SLURMD], status="active", timeout=1000)
@@ -113,9 +107,6 @@ async def test_munge_is_active(ops_test: OpsTest):
     assert cmd_res == "active"
 
 
-# IMPORTANT: Currently there is a bug where slurmd can reach active status despite the
-# systemd service failing.
-@pytest.mark.xfail
 @pytest.mark.abort_on_fail
 @pytest.mark.order(3)
 async def test_slurmd_is_active(ops_test: OpsTest):
