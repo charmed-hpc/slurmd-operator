@@ -208,11 +208,3 @@ class Slurmd(Object):
     def get_stored_munge_key(self) -> str:
         """Retrieve the munge_key from the StoredState."""
         return self._stored.munge_key
-
-    def configure_new_node(self):
-        """Set this node as not new and trigger a reconfiguration."""
-        inv = self.node_inventory
-        inv["new_node"] = False
-        self.node_inventory = inv
-        self._charm.ensure_slurmd_starts()
-        self._charm._check_status()

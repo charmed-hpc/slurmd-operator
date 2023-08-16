@@ -14,7 +14,7 @@ from charms.hpc_libs.v0.juju_systemd_notices import (
     SystemdNotices,
 )
 from interface_slurmd import Slurmd
-from ops.charm import CharmBase
+from ops.charm import ActionEvent, CharmBase
 from ops.framework import StoredState
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
@@ -211,10 +211,13 @@ class SlurmdCharm(CharmBase):
 
         event.set_results(version)
 
-    def _on_node_configured_action(self, event):
-        """Remove node from DownNodes."""
-        # trigger reconfig
-        self._slurmd.configure_new_node()
+    def _on_node_configured_action(self, _: ActionEvent) -> None:
+        """Remove node from DownNodes and mark as active."""
+        # Trigger reconfiguration of slurmd node.
+        inv = self._slurmd.node_inventory
+        inv["new_node"] = False
+        self._slurmd.node_inventory = inv
+        slurmd.restart()
         logger.debug("### This node is not new anymore")
 
     def _on_get_node_inventory_action(self, event):
