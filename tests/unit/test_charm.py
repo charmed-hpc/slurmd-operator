@@ -19,7 +19,7 @@ import unittest
 from unittest.mock import PropertyMock, patch
 
 from charm import SlurmdCharm
-from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
+from ops.model import ActiveStatus, BlockedStatus
 from ops.testing import Harness
 
 
@@ -88,10 +88,10 @@ class TestCharm(unittest.TestCase):
         self.harness.charm._stored.slurm_installed = True
         self.harness.charm._stored.slurmctld_available = True
         self.harness.charm._stored.slurmctld_started = True
-        self.harness.charm.on.update_status.emit()
 
-        # MaintenanceStatus('') is the expected value when _check_status does not
+        self.harness.charm.unit.status = ActiveStatus()
+        self.harness.charm.on.update_status.emit()
+        # ActiveStatus is the expected value when _check_status does not
         # modify the current state of the unit and should return True.
-        # _on_update_status just invokes the _check_status method.
         self.assertTrue(self.harness.charm._check_status())
-        self.assertEqual(self.harness.charm.unit.status, MaintenanceStatus())
+        self.assertEqual(self.harness.charm.unit.status, ActiveStatus())
