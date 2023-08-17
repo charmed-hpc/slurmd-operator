@@ -21,10 +21,8 @@ import pytest
 from helpers import NHC, VERSION
 from pytest_operator.plugin import OpsTest
 
-PARENT_DIR = Path.cwd().parent
 
-
-def pytest_addoption(parser):
+def pytest_addoption(parser) -> None:
     parser.addoption(
         "--charm-base", action="store", default="ubuntu@22.04", help="Charm base to test."
     )
@@ -32,7 +30,7 @@ def pytest_addoption(parser):
 
 @pytest.fixture(scope="module")
 def charm_base(request) -> str:
-    """Get slurmdbd charm base to use."""
+    """Get slurmd charm base to use."""
     return request.config.getoption("--charm-base")
 
 
@@ -40,32 +38,6 @@ def charm_base(request) -> str:
 async def slurmd_charm(ops_test: OpsTest):
     """Build slurmd charm to use for integration tests."""
     return await ops_test.build_charm(".")
-
-
-@pytest.fixture(scope="module")
-async def slurmctld_charm(ops_test: OpsTest):
-    """Build slurmctld charm to use for integration tests.
-
-    Notes:
-        Returns string "slurmctld" if ../slurmrestd-operator does not exist.
-    """
-    if (slurmctld := PARENT_DIR / "slurmctld-operator").exists():
-        return await ops_test.build_charm(slurmctld)
-
-    return "slurmctld"
-
-
-@pytest.fixture(scope="module")
-async def slurmdbd_charm(ops_test: OpsTest):
-    """Build slurmdbd charm to use for integration tests.
-
-    Notes:
-        Returns string "slurmdbd" if ../slurmrestd-operator does not exist.
-    """
-    if (slurmctld := PARENT_DIR / "slurmdbd-operator").exists():
-        return await ops_test.build_charm(slurmctld)
-
-    return "slurmdbd"
 
 
 def pytest_sessionfinish(session, exitstatus) -> None:

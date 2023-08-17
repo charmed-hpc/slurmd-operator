@@ -37,11 +37,7 @@ ROUTER = "mysql-router"
 @pytest.mark.skip_if_deployed
 @pytest.mark.order(1)
 async def test_build_and_deploy(
-    ops_test: OpsTest,
-    slurmd_charm: Coroutine[Any, Any, pathlib.Path],
-    slurmctld_charm: Coroutine[Any, Any, pathlib.Path],
-    slurmdbd_charm: Coroutine[Any, Any, pathlib.Path],
-    charm_base: str,
+    ops_test: OpsTest, slurmd_charm: Coroutine[Any, Any, pathlib.Path], charm_base: str
 ) -> None:
     """Test that the slurmd charm can stabilize against slurmctld, slurmdbd and MySQL."""
     logger.info(f"Deploying {SLURMD} against {SLURMCTLD}, {SLURMDBD}, and {DATABASE}")
@@ -55,17 +51,17 @@ async def test_build_and_deploy(
             base=charm_base,
         ),
         ops_test.model.deploy(
-            str(slurmctld := await slurmctld_charm),
+            SLURMCTLD,
             application_name=SLURMCTLD,
             config={"proctrack-type": "proctrack/linuxproc"},
-            channel="edge" if isinstance(slurmctld, str) else None,
+            channel="edge",
             num_units=1,
             base=charm_base,
         ),
         ops_test.model.deploy(
-            str(slurmdbd := await slurmdbd_charm),
+            SLURMDBD,
             application_name=SLURMDBD,
-            channel="edge" if isinstance(slurmdbd, str) else None,
+            channel="edge",
             num_units=1,
             base=charm_base,
         ),
