@@ -160,6 +160,18 @@ class Slurmd(Object):
         """Set unit inventory."""
         self._relation.data[self.model.unit]["inventory"] = json.dumps(inventory)
 
+    @property
+    def new_node(self) -> bool:
+        """Get `new_node` value in integration data."""
+        return self.node_inventory["new_node"]
+
+    @new_node.setter
+    def new_node(self, value: bool) -> None:
+        """Update `new_node` field in integration data."""
+        inv = self.node_inventory
+        inv["new_node"] = value
+        self.node_inventory = inv
+
     def set_partition_info_on_app_relation_data(self, partition_info):
         """Set the slurmd partition on the app relation data.
 

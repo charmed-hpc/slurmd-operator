@@ -175,7 +175,7 @@ class SlurmdCharm(CharmBase):
 
     def _on_slurmd_stopped(self, _: ServiceStoppedEvent) -> None:
         """Handle event emitted by systemd after slurmd daemon is stopped."""
-        self.unit.status = BlockedStatus("slurmd off")
+        self.unit.status = BlockedStatus("slurmd not running")
 
     def _on_config_changed(self, event):
         """Handle charm configuration changes."""
@@ -214,9 +214,7 @@ class SlurmdCharm(CharmBase):
     def _on_node_configured_action(self, _: ActionEvent) -> None:
         """Remove node from DownNodes and mark as active."""
         # Trigger reconfiguration of slurmd node.
-        inv = self._slurmd.node_inventory
-        inv["new_node"] = False
-        self._slurmd.node_inventory = inv
+        self._slurmd.new_node = False
         slurmd.restart()
         logger.debug("### This node is not new anymore")
 
