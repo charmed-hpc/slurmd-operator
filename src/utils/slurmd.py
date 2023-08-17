@@ -44,8 +44,7 @@ def stop() -> None:
 
 def restart() -> None:
     """Restart slurmd service."""
-    stop()
-    start()
+    systemd.service_restart("slurmd")
 
 
 def override_default(host: str, port: int) -> None:
@@ -78,7 +77,7 @@ def override_service() -> None:
     if not (override_dir := Path("/etc/systemd/system/slurmd.service.d")).is_dir():
         override_dir.mkdir()
 
-    overrides = override_dir / "override.conf"
+    overrides = override_dir / "99-slurmd-charm.conf"
     overrides.write_text(
         textwrap.dedent(
             f"""
@@ -113,7 +112,7 @@ def _start_slurmd_service() -> None:
     # delimited, so it is expanded here to simplify the call to Popen.
     slurmd_cmd = shlex.split(os.path.expandvars("/usr/sbin/slurmd -D -s $SLURMD_OPTIONS"))
 
-    # Try to start slurmd with 10 seconds in-between each attempt. Timeout after 15 minutes.
+    # Try to start slurmd with ~30 seconds in-between each attempt. Timeout after 15 minutes.
     end_time = datetime.datetime.now() + datetime.timedelta(minutes=15)
     while True:
         if datetime.datetime.now() >= end_time:
