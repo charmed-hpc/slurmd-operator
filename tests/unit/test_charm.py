@@ -74,7 +74,7 @@ class TestCharm(unittest.TestCase):
     def test_service_slurmd_stopped(self) -> None:
         """Test service_slurmd_stopped event handler."""
         self.harness.charm.on.service_slurmd_stopped.emit()
-        self.assertEqual(self.harness.charm.unit.status, BlockedStatus("slurmd off"))
+        self.assertEqual(self.harness.charm.unit.status, BlockedStatus("slurmd not running"))
 
     def test_update_status_install_fail(self) -> None:
         """Test update_status failure behavior from install."""
@@ -88,7 +88,10 @@ class TestCharm(unittest.TestCase):
         self.harness.charm._stored.slurm_installed = True
         self.harness.charm._stored.slurmctld_available = True
         self.harness.charm._stored.slurmctld_started = True
-
         self.harness.charm.on.update_status.emit()
-        # Status should not change at all as slurmd should be active.
+
+        # MaintenanceStatus('') is the expected value when _check_status does not
+        # modify the current state of the unit and should return True.
+        # _on_update_status just invokes the _check_status method.
+        self.assertTrue(self.harness.charm._check_status())
         self.assertEqual(self.harness.charm.unit.status, MaintenanceStatus())
