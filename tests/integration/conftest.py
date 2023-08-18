@@ -15,15 +15,14 @@
 
 """Configure integration test run."""
 
-import pathlib
+from pathlib import Path
 
 import pytest
-from _pytest.config.argparsing import Parser
-from helpers import ETCD, NHC, VERSION
+from helpers import NHC, VERSION
 from pytest_operator.plugin import OpsTest
 
 
-def pytest_addoption(parser: Parser) -> None:
+def pytest_addoption(parser) -> None:
     parser.addoption(
         "--charm-base", action="store", default="ubuntu@22.04", help="Charm base to test."
     )
@@ -31,19 +30,17 @@ def pytest_addoption(parser: Parser) -> None:
 
 @pytest.fixture(scope="module")
 def charm_base(request) -> str:
-    """Get slurmdbd charm base to use."""
+    """Get slurmd charm base to use."""
     return request.config.getoption("--charm-base")
 
 
 @pytest.fixture(scope="module")
 async def slurmd_charm(ops_test: OpsTest):
     """Build slurmd charm to use for integration tests."""
-    charm = await ops_test.build_charm(".")
-    return charm
+    return await ops_test.build_charm(".")
 
 
 def pytest_sessionfinish(session, exitstatus) -> None:
     """Clean up repository after test session has completed."""
-    pathlib.Path(ETCD).unlink(missing_ok=True)
-    pathlib.Path(NHC).unlink(missing_ok=True)
-    pathlib.Path(VERSION).unlink(missing_ok=True)
+    Path(NHC).unlink(missing_ok=True)
+    Path(VERSION).unlink(missing_ok=True)
