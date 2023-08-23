@@ -110,8 +110,10 @@ class SystemdNotices:
         """Subscribe charmed operator to observe status of systemd services."""
         _logger.debug(f"Generating systemd notice hooks for {self._services}")
         for service in self._services:
-            Path(f"hooks/service-{service}-started").symlink_to(f"{Path.cwd()}/dispatch")
-            Path(f"hooks/service-{service}-stopped").symlink_to(f"{Path.cwd()}/dispatch")
+            for hook in {"started", "stopped"}:
+                hook = Path(f"hooks/service-{service}-{hook}")
+                if not hook.exists():
+                    hook.symlink_to(f"{Path.cwd()}/dispatch")
 
         _logger.debug(f"Starting {self._service_file.name} daemon")
         if self._service_file.exists():
