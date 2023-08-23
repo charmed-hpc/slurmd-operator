@@ -18,7 +18,7 @@
 from pathlib import Path
 
 import pytest
-from helpers import NHC, VERSION
+from helpers import NHC
 from pytest_operator.plugin import OpsTest
 
 
@@ -43,4 +43,3 @@ async def slurmd_charm(ops_test: OpsTest):
 def pytest_sessionfinish(session, exitstatus) -> None:
     """Clean up repository after test session has completed."""
     Path(NHC).unlink(missing_ok=True)
-    Path(VERSION).unlink(missing_ok=True)

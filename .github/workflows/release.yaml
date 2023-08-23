@@ -31,8 +31,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Create version file
-        run: git describe --tags --always --dirty > version
       - name: Select charmhub channel
         uses: canonical/charming-actions/channel@2.2.0
         id: channel

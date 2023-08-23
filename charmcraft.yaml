@@ -21,3 +21,17 @@ parts:
   charm:
     build-packages: [git]
     charm-python-packages: [setuptools]
+
+  # Create a version file and pack it into the charm. This is dynamically generated
+  # as part of the build process for a charm to ensure that the git revision of the
+  # charm is always recorded in this version file.
+  version-file:
+    plugin: nil
+    build-packages:
+      - git
+    override-build: |
+      VERSION=$(git -C $CRAFT_PART_SRC/../../charm/src describe --dirty --always)
+      echo "Setting version to $VERSION"
+      echo $VERSION > $CRAFT_PART_INSTALL/version
+    stage:
+      - version
