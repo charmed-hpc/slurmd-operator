@@ -13,12 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Test slurmd charm against other SLURM charms in the latest/edge channel."""
+"""Test slurmd charm against other SLURM operators."""
 
 import asyncio
 import logging
-import pathlib
-from typing import Any, Coroutine
 
 import pytest
 from helpers import get_slurmd_res
@@ -31,37 +29,42 @@ SLURMDBD = "slurmdbd"
 SLURMCTLD = "slurmctld"
 DATABASE = "mysql"
 ROUTER = "mysql-router"
+UNIT_NAME = f"{SLURMD}/0"
 
 
 @pytest.mark.abort_on_fail
 @pytest.mark.skip_if_deployed
 @pytest.mark.order(1)
 async def test_build_and_deploy(
-    ops_test: OpsTest, slurmd_charm: Coroutine[Any, Any, pathlib.Path], charm_base: str
+    ops_test: OpsTest, charm_base: str, slurmd_charm, slurmctld_charm, slurmdbd_charm
 ) -> None:
     """Test that the slurmd charm can stabilize against slurmctld, slurmdbd and MySQL."""
     logger.info(f"Deploying {SLURMD} against {SLURMCTLD}, {SLURMDBD}, and {DATABASE}")
-    res_slurmd = get_slurmd_res()
+    # Pack charms and download NHC resource for slurmd operator.
+    slurmd_res, slurmd, slurmctld, slurmdbd = await asyncio.gather(
+        get_slurmd_res(), slurmd_charm, slurmctld_charm, slurmdbd_charm
+    )
+    # Deploy the test Charmed SLURM cloud.
     await asyncio.gather(
         ops_test.model.deploy(
-            str(await slurmd_charm),
+            str(slurmd),
             application_name=SLURMD,
             num_units=1,
-            resources=res_slurmd,
+            resources=slurmd_res,
             base=charm_base,
         ),
         ops_test.model.deploy(
-            SLURMCTLD,
+            str(slurmctld),
             application_name=SLURMCTLD,
             config={"proctrack-type": "proctrack/linuxproc"},
-            channel="edge",
+            channel="edge" if isinstance(slurmctld, str) else None,
             num_units=1,
             base=charm_base,
         ),
         ops_test.model.deploy(
-            SLURMDBD,
+            str(slurmdbd),
             application_name=SLURMDBD,
-            channel="edge",
+            channel="edge" if isinstance(slurmdbd, str) else None,
             num_units=1,
             base=charm_base,
         ),
@@ -81,7 +84,7 @@ async def test_build_and_deploy(
         ),
     )
     # Attach resources to slurmd application.
-    await ops_test.juju("attach-resource", SLURMD, f"nhc={res_slurmd['nhc']}")
+    await ops_test.juju("attach-resource", SLURMD, f"nhc={slurmd_res['nhc']}")
     # Set relations for charmed applications.
     await ops_test.model.integrate(f"{SLURMD}:{SLURMD}", f"{SLURMCTLD}:{SLURMD}")
     await ops_test.model.integrate(f"{SLURMDBD}:{SLURMDBD}", f"{SLURMCTLD}:{SLURMDBD}")
@@ -90,7 +93,7 @@ async def test_build_and_deploy(
     # Reduce the update status frequency to accelerate the triggering of deferred events.
     async with ops_test.fast_forward():
         await ops_test.model.wait_for_idle(apps=[SLURMD], status="active", timeout=1000)
-        assert ops_test.model.applications[SLURMD].units[0].workload_status == "active"
+        assert ops_test.model.units.get(UNIT_NAME).workload_status == "active"
 
 
 @pytest.mark.abort_on_fail
@@ -98,8 +101,8 @@ async def test_build_and_deploy(
 async def test_munge_is_active(ops_test: OpsTest):
     """Test that munge is active."""
     logger.info("Checking that munge is active inside Juju unit")
-    unit = ops_test.model.applications[SLURMD].units[0]
-    cmd_res = (await unit.ssh(command="systemctl is-active munge")).strip("\n")
+    slurmd_unit = ops_test.model.units.get(UNIT_NAME)
+    cmd_res = (await slurmd_unit.ssh(command="systemctl is-active munge")).strip("\n")
     assert cmd_res == "active"
 
 
@@ -108,6 +111,6 @@ async def test_munge_is_active(ops_test: OpsTest):
 async def test_slurmd_is_active(ops_test: OpsTest):
     """Test that slurmd is active."""
     logger.info("Checking that slurmd is active inside Juju unit")
-    unit = ops_test.model.applications[SLURMD].units[0]
-    cmd_res = (await unit.ssh(command="systemctl is-active slurmd")).strip("\n")
+    slurmd_unit = ops_test.model.units.get(UNIT_NAME)
+    cmd_res = (await slurmd_unit.ssh(command="systemctl is-active slurmd")).strip("\n")
     assert cmd_res == "active"

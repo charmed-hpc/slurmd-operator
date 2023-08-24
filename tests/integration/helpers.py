@@ -15,7 +15,7 @@
 """Helpers for the slurmd integration tests."""
 
 import logging
-import pathlib
+from pathlib import Path
 from typing import Dict
 from urllib import request
 
@@ -25,9 +25,9 @@ NHC = "lbnl-nhc-1.4.3.tar.gz"
 NHC_URL = f"https://github.com/mej/nhc/releases/download/1.4.3/{NHC}"
 
 
-def get_slurmd_res() -> Dict[str, pathlib.Path]:
+async def get_slurmd_res() -> Dict[str, Path]:
     """Get slurmd resources needed for charm deployment."""
-    if not (nhc := pathlib.Path(NHC)).exists():
+    if not (nhc := Path(NHC)).exists():
         logger.info(f"Getting resource {NHC} from {NHC_URL}")
         request.urlretrieve(NHC_URL, nhc)
 
