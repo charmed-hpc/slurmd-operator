@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 
 from charms.fluentbit.v0.fluentbit import FluentbitClient
-from charms.hpc_libs.v0.juju_systemd_notices import (
+from charms.operator_libs_linux.v0.juju_systemd_notices import (
     ServiceStartedEvent,
     ServiceStoppedEvent,
     SystemdNotices,
