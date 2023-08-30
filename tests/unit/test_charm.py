@@ -58,7 +58,7 @@ class TestCharm(unittest.TestCase):
     @patch("ops.model.Resources.fetch")
     @patch("utils.slurmd.override_default")
     @patch("utils.slurmd.override_service")
-    @patch("charms.hpc_libs.v0.juju_systemd_notices.SystemdNotices.subscribe")
+    @patch("charms.operator_libs_linux.v0.juju_systemd_notices.SystemdNotices.subscribe")
     @patch("ops.framework.EventBase.defer")
     def test_install_success(self, defer, *_) -> None:
         """Test install success behavior."""
