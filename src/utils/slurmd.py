@@ -86,8 +86,8 @@ def override_service() -> None:
 
             [Service]
             Type=forking
-            ExecStart=
-            ExecStart=/usr/bin/python3 {__file__}
+            ExecStart=            
+            ExecStart=/opt/python/3.8.16/bin/python3.8 {__file__}
             LimitMEMLOCK=infinity
             LimitNOFILE=1048576
             TimeoutSec=900
