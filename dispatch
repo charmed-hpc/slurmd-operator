@@ -21,7 +21,7 @@ then
 		wget https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz -P /tmp
 		tar xvf /tmp/Python-${PYTHON_VERSION}.tar.xz -C /tmp
 		cd /tmp/Python-${PYTHON_VERSION}
-		./configure --enable-optimizations --prefix=/usr
+		./configure --enable-optimizations
 		make -C /tmp/Python-${PYTHON_VERSION} -j $(nproc) altinstall		
 		cd $CHARM_DIR
 		rm -rf /tmp/Python*
