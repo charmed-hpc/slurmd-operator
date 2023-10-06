@@ -173,8 +173,12 @@ class SystemdNotices:
             self._charm.on.define_event(f"service_{service}_started", ServiceStartedEvent)
             self._charm.on.define_event(f"service_{service}_stopped", ServiceStoppedEvent)
 
-    def subscribe(self) -> None:
-        """Subscribe charmed operator to observe status of systemd services."""
+    def subscribe(self, python_bin: str) -> None:
+        """Subscribe charmed operator to observe status of systemd services.
+        
+        Args:
+            python_bin: Path of Python's binary file.
+        """
         _logger.debug("Generating systemd notice hooks for %s", self._services)
         start_hooks = [Path(f"hooks/service-{service}-started") for service in self._services]
         stop_hooks = [Path(f"hooks/service-{service}-stopped") for service in self._services]
@@ -187,6 +191,7 @@ class SystemdNotices:
         _logger.debug("Starting %s daemon", self._service_file.name)
         if self._service_file.exists():
             _logger.debug("Overwriting existing service file %s", self._service_file.name)
+
         self._service_file.write_text(
             textwrap.dedent(
                 f"""
@@ -199,7 +204,7 @@ class SystemdNotices:
                 Restart=always
                 WorkingDirectory={self._charm.framework.charm_dir}
                 Environment="PYTHONPATH={self._charm.framework.charm_dir / "venv"}"
-                ExecStart=/usr/bin/python3 {__file__} {self._charm.unit.name}
+                ExecStart={python_bin} {__file__} {self._charm.unit.name}
 
                 [Install]
                 WantedBy=multi-user.target

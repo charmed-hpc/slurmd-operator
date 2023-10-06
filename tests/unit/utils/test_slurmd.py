@@ -48,14 +48,14 @@ class TestSlurmd(unittest.TestCase):
     @patch("charms.operator_libs_linux.v1.systemd._systemctl")
     def test_override_service_no_service_d(self, *_) -> None:
         """Test override_service(...) when slurmd.service.d does not exist."""
-        slurmd.override_service()
+        slurmd.override_service(python_bin="/usr/bin/python3")
 
     @patch("pathlib.Path.is_dir", return_value=True)
     @patch("pathlib.Path.write_text")
     @patch("charms.operator_libs_linux.v1.systemd._systemctl")
     def test_override_service_yes_service_d(self, *_) -> None:
         """Test override_service(...) when slurmd.service.d exists."""
-        slurmd.override_service()
+        slurmd.override_service(python_bin="/usr/bin/python3")
 
     @patch("datetime.timedelta", return_value=datetime.timedelta(-1))
     def test_start_slurmd_service_fail(self, _) -> None:

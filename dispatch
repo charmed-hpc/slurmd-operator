@@ -12,17 +12,20 @@ if ! [[ -f '.installed' ]]
 then
 	if [[ $ID == 'centos' ]]
 	then
-		# Necessary to compile and install NHC
-		yum -y install make
+		# Install dependencies and build custom python
+		yum -y install epel-release
+		yum -y install wget gcc make tar bzip2-devel zlib-devel xz-devel openssl-devel libffi-devel sqlite-devel ncurses-devel
 
-		# Determine the centos version and install prereqs accordingly
-		if [[ $VERSION_ID == "7" ]]
-		then
-			/bin/bash ./src/scripts/install_python.sh
-		elif [[ $VERSION_ID == "9" ]]
-		then
-			yum -y install python38
-		fi
+		export PYTHON_VERSION=3.8.16		
+		CHARM_DIR=$PWD
+		wget https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz -P /tmp
+		tar xvf /tmp/Python-${PYTHON_VERSION}.tar.xz -C /tmp
+		cd /tmp/Python-${PYTHON_VERSION}
+		./configure --enable-optimizations --prefix=/usr
+		make -C /tmp/Python-${PYTHON_VERSION} -j $(nproc) altinstall		
+		cd $CHARM_DIR
+		rm -rf /tmp/Python*
+		
 	elif [[ $ID == 'ubuntu' ]]
 	then
 		# Necessary to compile and install NHC
@@ -32,11 +35,11 @@ then
 fi
 
 # set the correct python bin path
-if [[ $ID == "centos" && $VERSION_ID == "7" ]]
+if [[ $ID == "centos" ]]
 then
-	PYTHON_BIN=/opt/python/3.8.16/bin/python3.8
+	PYTHON_BIN="/usr/bin/env python3.8"
 else
-	PYTHON_BIN=/usr/bin/python3
+	PYTHON_BIN="/usr/bin/env python3"
 fi
 
 JUJU_DISPATCH_PATH="${JUJU_DISPATCH_PATH:-$0}" PYTHONPATH=lib:venv $PYTHON_BIN ./src/charm.py

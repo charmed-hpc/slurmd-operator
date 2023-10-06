@@ -65,8 +65,11 @@ def override_default(host: str, port: int) -> None:
     )
 
 
-def override_service() -> None:
+def override_service(python_bin: str) -> None:
     """Override the default slurmd systemd service file.
+
+    Args:
+        python_bin: Path of Python's binary file.
 
     Notes:
         This method makes an invokes `systemd daemon-reload` after writing
@@ -86,8 +89,8 @@ def override_service() -> None:
 
             [Service]
             Type=forking
-            ExecStart=            
-            ExecStart=/opt/python/3.8.16/bin/python3.8 {__file__}
+            ExecStart=
+            ExecStart={python_bin} {__file__}
             LimitMEMLOCK=infinity
             LimitNOFILE=1048576
             TimeoutSec=900
