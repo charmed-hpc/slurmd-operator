@@ -7,7 +7,6 @@
 import logging
 from pathlib import Path
 
-import distro
 from charms.fluentbit.v0.fluentbit import FluentbitClient
 from charms.operator_libs_linux.v0.juju_systemd_notices import (
     ServiceStartedEvent,
@@ -48,12 +47,6 @@ class SlurmdCharm(CharmBase):
         self._slurmd = Slurmd(self, "slurmd")
         self._systemd_notices = SystemdNotices(self, ["slurmd"])
 
-        # use an specific python version for CentOS 7
-        if distro.id() == "centos":
-            self._python_bin = "/usr/bin/env python3.8"
-        else:
-            self._python_bin = "/usr/bin/python3"
-
         event_handler_bindings = {
             self.on.install: self._on_install,
             self.on.upgrade_charm: self._on_upgrade,
@@ -91,12 +84,12 @@ class SlurmdCharm(CharmBase):
         successful_installation = self._slurm_manager.install(
             self.config.get("custom-slurm-repo"), nhc_path
         )
-        slurmd.override_service(self._python_bin)
+        slurmd.override_service()
         logger.debug(f"### slurmd installed: {successful_installation}")
 
         if successful_installation:
             self._stored.slurm_installed = True
-            self._systemd_notices.subscribe(self._python_bin)
+            self._systemd_notices.subscribe()
         else:
             self.unit.status = BlockedStatus("Error installing slurmd")
             event.defer()

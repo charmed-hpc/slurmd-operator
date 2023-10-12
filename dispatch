@@ -16,14 +16,13 @@ then
 		yum -y install epel-release
 		yum -y install wget gcc make tar bzip2-devel zlib-devel xz-devel openssl-devel libffi-devel sqlite-devel ncurses-devel
 
-		export PYTHON_VERSION=3.8.16		
-		CHARM_DIR=$PWD
+		export PYTHON_VERSION=3.8.16
 		wget https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz -P /tmp
 		tar xvf /tmp/Python-${PYTHON_VERSION}.tar.xz -C /tmp
 		cd /tmp/Python-${PYTHON_VERSION}
 		./configure --enable-optimizations
 		make -C /tmp/Python-${PYTHON_VERSION} -j $(nproc) altinstall		
-		cd $CHARM_DIR
+		cd $OLDPWD
 		rm -rf /tmp/Python*
 		
 	elif [[ $ID == 'ubuntu' ]]
