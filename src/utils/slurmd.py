@@ -28,7 +28,6 @@ import textwrap
 from pathlib import Path
 
 import charms.operator_libs_linux.v1.systemd as systemd
-from constants import DISTRO_ID
 
 _logger = logging.getLogger(__name__)
 
@@ -60,7 +59,7 @@ def override_default(host: str, port: int) -> None:
         textwrap.dedent(
             f"""
             SLURMD_OPTIONS="--conf-server {host}:{port}"
-            PYTHONPATH={Path.cwd() / "lib"}:{Path.cwd() / "venv"}
+            PYTHONPATH={Path.cwd() / "lib"}
             """
         ).strip()
     )
@@ -78,12 +77,6 @@ def override_service() -> None:
     if not (override_dir := Path("/etc/systemd/system/slurmd.service.d")).is_dir():
         override_dir.mkdir()
 
-    # use an specific python version for CentOS 7
-    if DISTRO_ID == "centos":
-        python_bin = "/usr/bin/env python3.8"
-    else:
-        python_bin = "/usr/bin/python3"
-
     overrides = override_dir / "99-slurmd-charm.conf"
     overrides.write_text(
         textwrap.dedent(
@@ -94,7 +87,7 @@ def override_service() -> None:
             [Service]
             Type=forking
             ExecStart=
-            ExecStart={python_bin} {__file__}
+            ExecStart=/usr/bin/python3 {__file__}
             LimitMEMLOCK=infinity
             LimitNOFILE=1048576
             TimeoutSec=900

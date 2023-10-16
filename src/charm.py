@@ -7,6 +7,7 @@
 import logging
 from pathlib import Path
 
+import distro
 from charms.fluentbit.v0.fluentbit import FluentbitClient
 from charms.operator_libs_linux.v0.juju_systemd_notices import (
     ServiceStartedEvent,
@@ -19,9 +20,14 @@ from ops.framework import StoredState
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 from slurm_ops_manager import SlurmManager
-from utils import slurmd
+from utils import monkeypatch, slurmd
 
 logger = logging.getLogger(__name__)
+if distro.id() == "centos":
+    logger.debug("Monkeypatching slurmd operator to support CentOS base")
+    SystemdNotices = monkeypatch.juju_systemd_notices(SystemdNotices)
+    slurmd = monkeypatch.slurmd_override_default(slurmd)
+    slurmd = monkeypatch.slurmd_override_service(slurmd)
 
 
 class SlurmdCharm(CharmBase):
