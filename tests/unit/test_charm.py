@@ -66,6 +66,20 @@ class TestCharm(unittest.TestCase):
         self.assertTrue(self.harness.charm._stored.slurm_installed)
         defer.assert_not_called()
 
+    @patch("slurm_ops_manager.SlurmManager.install")
+    @patch("pathlib.Path.read_text", return_value="v1.0.0")
+    @patch("ops.model.Unit.set_workload_version")
+    @patch("ops.model.Resources.fetch")
+    @patch("utils.slurmd.override_default")
+    @patch("utils.slurmd.override_service")
+    @patch("charms.operator_libs_linux.v0.juju_systemd_notices.SystemdNotices.subscribe")
+    @patch("ops.framework.EventBase.defer")
+    def test_install_success_centos(self, defer, *_) -> None:
+        """Test install success behavior on CentOS."""
+        self.harness.charm.on.install.emit()
+        self.assertTrue(self.harness.charm._stored.slurm_installed)
+        defer.assert_not_called()
+
     def test_service_slurmd_start(self) -> None:
         """Test service_slurmd_started event handler."""
         self.harness.charm.on.service_slurmd_started.emit()
