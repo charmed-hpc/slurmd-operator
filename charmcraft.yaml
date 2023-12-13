@@ -10,9 +10,6 @@ bases:
       - name: ubuntu
         channel: "22.04"
         architectures: [amd64]
-      - name: ubuntu
-        channel: "20.04"
-        architectures: [amd64]
       - name: centos
         channel: "7"
         architectures: [amd64]
