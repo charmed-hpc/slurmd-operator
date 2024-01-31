@@ -19,6 +19,8 @@ from ops.charm import ActionEvent, CharmBase
 from ops.framework import StoredState
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
+
+from apptainer import install_apptainer
 from slurm_ops_manager import SlurmManager
 from utils import monkeypatch, slurmd
 
@@ -85,8 +87,11 @@ class SlurmdCharm(CharmBase):
             event.defer()
             return
 
-        self.unit.set_workload_version(Path("version").read_text().strip())
+        self.unit.status = WaitingStatus("Installing apptainer")
+        install_apptainer()
+
         self.unit.status = WaitingStatus("Installing slurmd")
+        self.unit.set_workload_version(Path("version").read_text().strip())
         successful_installation = self._slurm_manager.install(
             self.config.get("custom-slurm-repo"), nhc_path
         )
