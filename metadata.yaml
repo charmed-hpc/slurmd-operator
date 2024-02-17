@@ -21,6 +21,8 @@ requires:
 provides:
   slurmd:
     interface: slurmd
+  nodes:
+    interface: nodes
 
 resources:
   nhc:

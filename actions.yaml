@@ -13,3 +13,9 @@ set-node-inventory:
 
 show-nhc-config:
   description: Display the currently used `nhc.conf`.
+node-config:
+  description: Modify node inventory.
+  params:
+    node-config:
+      type: string
+      description: User supplied node configuration for this node.

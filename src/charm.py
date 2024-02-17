@@ -14,6 +14,7 @@ from charms.operator_libs_linux.v0.juju_systemd_notices import (
     ServiceStoppedEvent,
     SystemdNotices,
 )
+from interface_nodes import Nodes
 from interface_slurmd import Slurmd
 from ops.charm import ActionEvent, CharmBase
 from ops.framework import StoredState
@@ -45,11 +46,14 @@ class SlurmdCharm(CharmBase):
             slurmctld_available=False,
             slurmctld_started=False,
             cluster_name=str(),
+            node_config=str(),
+            new_node=True,
         )
 
         self._slurm_manager = SlurmManager(self, "slurmd")
         self._fluentbit = FluentbitClient(self, "fluentbit")
         # interface to slurmctld, should only have one slurmctld per slurmd app
+        self._nodes = Nodes(self, "nodes")
         self._slurmd = Slurmd(self, "slurmd")
         self._systemd_notices = SystemdNotices(self, ["slurmd"])
 
@@ -70,9 +74,30 @@ class SlurmdCharm(CharmBase):
             self.on.get_node_inventory_action: self._on_get_node_inventory_action,
             self.on.set_node_inventory_action: self._on_set_node_inventory_action,
             self.on.show_nhc_config_action: self._on_show_nhc_config,
+            self.on.node_config_action: self._on_set_user_supplied_node_conifg,
         }
         for event, handler in event_handler_bindings.items():
             self.framework.observe(event, handler)
+
+    @property
+    def new_node(self) -> bool:
+        """Get the new_node from stored state."""
+        return self._stored.new_node
+
+    @new_node.setter
+    def new_node(self, new_node: bool) -> None:
+        """Set the new_node in stored state."""
+        self._stored.new_node = new_node
+
+    @property
+    def node_config(self) -> str:
+        """Get the node_config from stored state."""
+        return self._stored.node_config
+
+    @node_config.setter
+    def node_config(self, node_config: str) -> None:
+        """Set the node_config in stored state."""
+        self._stored.node_config = node_config
 
     def _on_install(self, event):
         """Perform installation operations for slurmd."""
@@ -101,6 +126,7 @@ class SlurmdCharm(CharmBase):
             event.defer()
 
         self._check_status()
+
 
     def _on_configure_fluentbit(self, event):
         """Set up Fluentbit log forwarding."""
@@ -250,6 +276,17 @@ class SlurmdCharm(CharmBase):
         """Show current nhc.conf."""
         nhc_conf = self._slurm_manager.get_nhc_config()
         event.set_results({"nhc.conf": nhc_conf})
+
+    def _on_set_user_supplied_node_conifg(self, event):
+        """Set the node_config in stored state."""
+        node_config = event.params.get("node-config", "")
+        self._stored.node_config = node_config
+        # Note: Would be nice if we could parse the node_config by the user
+        # and provide them feedback on whether or not the node_config was accepted.
+        # event.set_results({"status": f"Invalid Node Configuration: {node_config}"})
+        self._nodes.send_node_config_to_slurmctld()
+        event.set_results({"status": f"Accepted: {node_config}"})
+
 
     def _on_set_partition_info_on_app_relation_data(self, event):
         """Set the slurm partition info on the application relation data."""

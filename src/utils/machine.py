@@ -33,10 +33,10 @@ def cpu_info():
     ls_cpu = lscpu()
 
     return {
-        "cpus": ls_cpu["cpus"],
-        "threads_per_core": ls_cpu["threads_per_core"],
-        "cores_per_socket": ls_cpu["cores_per_socket"],
-        "sockets_per_board": ls_cpu["sockets"],
+        "CPUs": ls_cpu["cpus"],
+        "ThreadsPerCore": ls_cpu["threads_per_core"],
+        "CoresPerSocket": ls_cpu["cores_per_socket"],
+        "SocketsPerBoard": ls_cpu["sockets"],
     }
 
 
@@ -66,14 +66,14 @@ def lspci_nvidia():
 def get_inventory(node_name, node_addr):
     """Assemble and return the node info."""
     inventory = {
-        "node_name": node_name,
-        "node_addr": node_addr,
-        "state": "UNKNOWN",
-        "real_memory": get_real_mem(),
+        "NodeName": node_name,
+        "NodeAddr": node_addr,
+        "State": "UNKNOWN",
+        "RealMemory": get_real_mem(),
         **cpu_info(),
     }
 
     gpus = lspci_nvidia()
     if gpus > 0:
-        inventory["gres"] = gpus
+        inventory["Gres"] = gpus
     return inventory
