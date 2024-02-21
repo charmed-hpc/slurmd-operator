@@ -24,13 +24,33 @@ This operator should be used with Juju 3.x or greater.
 ```shell
 $ juju deploy slurmctld --channel edge
 $ juju deploy slurmd --channel edge
-$ juju deploy slurmdbd --channel edge
-$ juju deploy mysql --channel 8.0/edge
-$ juju deploy mysql-router slurmdbd-mysql-router --channel dpe/edge
-$ juju integrate slurmctld:slurmd slurmd:slurmd
-$ juju integrate slurmdbd-mysql-router:backend-database mysql:database
-$ juju integrate slurmdbd:database slurmdbd-mysql-router:database
-$ juju integrate slurmctld:slurmdbd slurmdbd:slurmdbd
+$ juju integrate slurmctld:slurmd slurmd:slurmctld
+```
+
+### Operations
+This charm hardens and simplifies operations by codifying common administration operations as charm actions.
+
+#### Partition Configuration
+Specify partition parameters using the charm configuration, `partition-config`.
+
+##### Use the `partition-config` to set custom partition parameters.
+```bash
+$ juju config slurmd partition-config="State=INACTIVE"
+```
+
+#### Node Configuration Parameters
+You can get and set the node configuration using the `node-config` action.
+
+##### Use the `node-config` action to get the node configuration for the unit.
+```bash
+$ juju run --quiet slurmd/0 node-config --format json | jq ".[].results.node.config"
+"NodeName=juju-462521-4 NodeAddr=10.240.222.28 State=UNKNOWN RealMemory=64012 CPUs=12 ThreadsPerCore=2 CoresPerSocket=6 SocketsPerBoard=1"
+```
+
+##### Use the `node-config` action to set a custom weight value for the node.
+```bash
+$ juju run --quiet slurmd/0 node-config parameters="Weight=5000" --format json | jq ".[].results.node.config"
+"NodeName=juju-462521-4 NodeAddr=10.240.222.28 State=UNKNOWN RealMemory=64012 CPUs=12 ThreadsPerCore=2 CoresPerSocket=6 SocketsPerBoard=1 Weight=5000"
 ```
 
 ## Project & Community

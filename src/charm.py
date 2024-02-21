@@ -1,33 +1,40 @@
 #!/usr/bin/env python3
-# Copyright 2020 Omnivector Solutions, LLC.
+# Copyright 2024 Omnivector, LLC.
 # See LICENSE file for licensing details.
 
-"""SlurmdCharm."""
+"""Slurmd Operator Charm."""
 
 import logging
-from pathlib import Path
+import socket
+from dataclasses import fields
+from typing import Any, Dict
 
-import distro
-from charms.fluentbit.v0.fluentbit import FluentbitClient
-from charms.operator_libs_linux.v0.juju_systemd_notices import (
+from charms.operator_libs_linux.v0.juju_systemd_notices import (  # type: ignore[import-untyped]
     ServiceStartedEvent,
     ServiceStoppedEvent,
     SystemdNotices,
 )
-from interface_slurmd import Slurmd
-from ops.charm import ActionEvent, CharmBase
-from ops.framework import StoredState
-from ops.main import main
-from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
-from slurm_ops_manager import SlurmManager
-from utils import monkeypatch, slurmd
+from interface_slurmctld import (
+    Slurmctld,
+    SlurmctldAvailableEvent,
+)
+from ops import (
+    ActionEvent,
+    ActiveStatus,
+    BlockedStatus,
+    CharmBase,
+    ConfigChangedEvent,
+    InstallEvent,
+    StoredState,
+    UpdateStatusEvent,
+    WaitingStatus,
+    main,
+)
+from slurm_conf_editor import Node, Partition
+from slurmd_ops import SlurmdManager
+from utils import slurmd
 
 logger = logging.getLogger(__name__)
-if distro.id() == "centos":
-    logger.debug("Monkeypatching slurmd operator to support CentOS base")
-    SystemdNotices = monkeypatch.juju_systemd_notices(SystemdNotices)
-    slurmd = monkeypatch.slurmd_override_default(slurmd)
-    slurmd = monkeypatch.slurmd_override_service(slurmd)
 
 
 class SlurmdCharm(CharmBase):
@@ -40,138 +47,147 @@ class SlurmdCharm(CharmBase):
         super().__init__(*args, **kwargs)
 
         self._stored.set_default(
+            munge_key=str(),
+            new_node=True,
             nhc_conf=str(),
+            nhc_params=str(),
             slurm_installed=False,
             slurmctld_available=False,
-            slurmctld_started=False,
-            cluster_name=str(),
+            slurmctld_host=str(),
+            user_supplied_node_parameters={},
+            user_supplied_partition_parameters={},
         )
 
-        self._slurm_manager = SlurmManager(self, "slurmd")
-        self._fluentbit = FluentbitClient(self, "fluentbit")
-        # interface to slurmctld, should only have one slurmctld per slurmd app
-        self._slurmd = Slurmd(self, "slurmd")
+        self._slurmd_manager = SlurmdManager()
+        self._slurmctld = Slurmctld(self, "slurmctld")
         self._systemd_notices = SystemdNotices(self, ["slurmd"])
 
         event_handler_bindings = {
             self.on.install: self._on_install,
-            self.on.upgrade_charm: self._on_upgrade,
             self.on.update_status: self._on_update_status,
             self.on.config_changed: self._on_config_changed,
+            self._slurmctld.on.slurmctld_available: self._on_slurmctld_available,
+            self._slurmctld.on.slurmctld_unavailable: self._on_slurmctld_unavailable,
             self.on.service_slurmd_started: self._on_slurmd_started,
             self.on.service_slurmd_stopped: self._on_slurmd_stopped,
-            self._slurmd.on.slurmctld_available: self._on_slurmctld_available,
-            self._slurmd.on.slurmctld_unavailable: self._on_slurmctld_unavailable,
-            # fluentbit
-            self.on["fluentbit"].relation_created: self._on_configure_fluentbit,
-            # actions
-            self.on.version_action: self._on_version_action,
             self.on.node_configured_action: self._on_node_configured_action,
-            self.on.get_node_inventory_action: self._on_get_node_inventory_action,
-            self.on.set_node_inventory_action: self._on_set_node_inventory_action,
-            self.on.show_nhc_config_action: self._on_show_nhc_config,
+            self.on.node_config_action: self._on_node_config_action_event,
         }
         for event, handler in event_handler_bindings.items():
             self.framework.observe(event, handler)
 
-    def _on_install(self, event):
+    def _on_install(self, event: InstallEvent) -> None:
         """Perform installation operations for slurmd."""
-        try:
-            nhc_path = self.model.resources.fetch("nhc")
-            logger.debug(f"## Found nhc resource: {nhc_path}")
-        except Exception as e:
-            logger.error(f"## Missing nhc resource: {e}")
-            self.unit.status = BlockedStatus("Missing nhc resource")
-            event.defer()
-            return
-
-        self.unit.set_workload_version(Path("version").read_text().strip())
         self.unit.status = WaitingStatus("Installing slurmd")
-        successful_installation = self._slurm_manager.install(
-            self.config.get("custom-slurm-repo"), nhc_path
-        )
-        slurmd.override_service()
-        logger.debug(f"### slurmd installed: {successful_installation}")
 
-        if successful_installation:
-            self._stored.slurm_installed = True
+        if self._slurmd_manager.install():
+            self.unit.set_workload_version(self._slurmd_manager.version())
+            slurmd.override_service()
             self._systemd_notices.subscribe()
+
+            self._stored.slurm_installed = True
         else:
             self.unit.status = BlockedStatus("Error installing slurmd")
             event.defer()
 
         self._check_status()
 
-    def _on_configure_fluentbit(self, event):
-        """Set up Fluentbit log forwarding."""
-        self._configure_fluentbit()
+    def _on_config_changed(self, event: ConfigChangedEvent) -> None:
+        """Handle charm configuration changes."""
+        if nhc_conf := self.model.config.get("nhc-conf"):
+            if nhc_conf != self._stored.nhc_conf:
+                self._stored.nhc_conf = nhc_conf
+                self._slurmd_manager.render_nhc_config(nhc_conf)
 
-    def _configure_fluentbit(self):
-        logger.debug("## Configuring fluentbit")
-        cfg = []
-        cfg.extend(self._slurm_manager.fluentbit_config_nhc)
-        cfg.extend(self._slurm_manager.fluentbit_config_slurm)
-        self._fluentbit.configure(cfg)
+        user_supplied_partition_parameters = self.model.config.get("partition-config")
 
-    def _on_upgrade(self, event):
-        """Perform upgrade operations."""
-        self.unit.set_workload_version(Path("version").read_text().strip())
+        if self.model.unit.is_leader():
+            if user_supplied_partition_parameters is not None:
+                tmp_params = {}
+                try:
+                    tmp_params = {
+                        item.split("=")[0]: item.split("=")[1]
+                        for item in str(user_supplied_partition_parameters).split()
+                    }
+                except IndexError:
+                    logger.error(
+                        "Error parsing partition-config. Please use KEY1=VALUE KEY2=VALUE."
+                    )
+                    return
 
-    def _on_update_status(self, event):
+                # Validate the user supplied params are valid params.
+                for parameter in tmp_params:
+                    if parameter not in [
+                        partition_parameter.name for partition_parameter in fields(Partition)
+                    ]:
+                        logger.error(
+                            f"Invalid user supplied partition configuration parameter: {parameter}."
+                        )
+                        return
+
+                self._stored.user_supplied_partition_parameters = tmp_params
+
+                if self._slurmctld.is_joined:
+                    self._slurmctld.set_partition()
+
+    def _on_update_status(self, event: UpdateStatusEvent) -> None:
         """Handle update status."""
         self._check_status()
 
-    def _check_status(self) -> bool:
-        """Check if we have all needed components.
-
-        - partition name
-        - slurm installed
-        - slurmctld available and working
-        - munge key configured and working
-        """
-        if not self._stored.slurm_installed:
-            self.unit.status = BlockedStatus("Error installing slurmd")
-            return False
-
-        if not self._slurmd.is_joined:
-            self.unit.status = BlockedStatus("Need relations: slurmctld")
-            return False
-
-        if not self._stored.slurmctld_available:
-            self.unit.status = WaitingStatus("Waiting on: slurmctld")
-            return False
-
-        if not self._slurm_manager.check_munged():
-            self.unit.status = BlockedStatus("Error configuring munge key")
-            return False
-
-        return True
-
-    def _set_slurmctld_available(self, flag: bool):
-        """Change stored value for slurmctld availability."""
-        self._stored.slurmctld_available = flag
-
-    def _on_slurmctld_available(self, event):
-        """Get data from slurmctld and send inventory."""
-        if not self._stored.slurm_installed:
+    def _on_slurmctld_available(self, event: SlurmctldAvailableEvent) -> None:
+        """Retrieve the slurmctld_available event data and store in charm state."""
+        if self._stored.slurm_installed is not True:
             event.defer()
             return
 
-        logger.debug("#### Slurmctld available - setting overrides for configless")
-        self._set_slurmctld_available(True)
-        # Get slurmctld host:port from relation and override systemd services.
-        slurmd.override_default(self._slurmd.slurmctld_hostname, self._slurmd.slurmctld_port)
-        self._on_set_partition_info_on_app_relation_data(event)
-        self._write_munge_key_and_restart_munge()
-        # Only set up fluentbit if we have a relation to it.
-        if self._fluentbit._relation is not None:
-            self._configure_fluentbit()
+        if (slurmctld_host := event.slurmctld_host) != self._stored.slurmctld_host:
+            if slurmctld_host is not None:
+                slurmd.override_default(slurmctld_host)
+                self._stored.slurmctld_host = slurmctld_host
+                logger.debug(f"slurmctld_host={slurmctld_host}")
+            else:
+                logger.debug("'slurmctld_host' not in event data.")
+                return
+
+        if (munge_key := event.munge_key) != self._stored.munge_key:
+            if munge_key is not None:
+                self._stored.munge_key = munge_key
+                self._slurmd_manager.write_munge_key(munge_key)
+                logger.debug(f"munge_key={munge_key}")
+            else:
+                logger.debug("'munge_key' not in event data.")
+                return
+
+        if (nhc_params := event.nhc_params) != self._stored.nhc_params:
+            if nhc_params is not None:
+                self._stored.nhc_params = nhc_params
+                self._slurmd_manager.render_nhc_wrapper(nhc_params)
+                logger.debug(f"nhc_params={nhc_params}")
+            else:
+                logger.debug("'nhc_params' not in event data.")
+                return
+
+        logger.debug(
+            "#### Storing slurmctld_available event relation data in charm StoredState." ""
+        )
+        self._stored.slurmctld_available = True
+
+        # Restart munged and slurmd after we write the event data to their respective locations.
+        if self._slurmd_manager.restart_munged():
+            logger.debug("## Munge restarted successfully")
+        else:
+            logger.error("## Unable to restart munge")
+
         slurmd.restart()
         self._check_status()
 
-    def _on_slurmctld_unavailable(self, event):
+    def _on_slurmctld_unavailable(self, event) -> None:
+        """Stop slurmd and set slurmctld_available = False when we lose slurmctld."""
         logger.debug("## Slurmctld unavailable")
-        self._set_slurmctld_available(False)
+        self._stored.slurmctld_available = False
+        self._stored.nhc_params = ""
+        self._stored.munge_key = ""
+        self._stored.slurmctld_host = ""
         slurmd.stop()
         self._check_status()
 
@@ -183,109 +199,143 @@ class SlurmdCharm(CharmBase):
         """Handle event emitted by systemd after slurmd daemon is stopped."""
         self.unit.status = BlockedStatus("slurmd not running")
 
-    def _on_config_changed(self, event):
-        """Handle charm configuration changes."""
-        if self.model.unit.is_leader():
-            logger.debug("## slurmd config changed - leader")
-            self._on_set_partition_info_on_app_relation_data(event)
-
-        nhc_conf = self.model.config.get("nhc-conf")
-        if nhc_conf:
-            if nhc_conf != self._stored.nhc_conf:
-                self._stored.nhc_conf = nhc_conf
-                self._slurm_manager.render_nhc_config(nhc_conf)
-
-    def _write_munge_key_and_restart_munge(self):
-        logger.debug("#### slurmd charm - writing munge key")
-
-        self._slurm_manager.configure_munge_key(self._slurmd.get_stored_munge_key())
-
-        if self._slurm_manager.restart_munged():
-            logger.debug("## Munge restarted successfully")
-        else:
-            logger.error("## Unable to restart munge")
-
-    def _on_version_action(self, event):
-        """Return version of installed components.
-
-        - Slurm
-        - munge
-        """
-        version = {}
-        version["slurm"] = self._slurm_manager.slurm_version()
-        version["munge"] = self._slurm_manager.munge_version()
-
-        event.set_results(version)
-
     def _on_node_configured_action(self, _: ActionEvent) -> None:
         """Remove node from DownNodes and mark as active."""
         # Trigger reconfiguration of slurmd node.
-        self._slurmd.new_node = False
+        self._new_node = False
+        self._slurmctld.set_node()
         slurmd.restart()
         logger.debug("### This node is not new anymore")
 
-    def _on_get_node_inventory_action(self, event):
-        """Return node inventory."""
-        inventory = self._slurmd.node_inventory
-        logger.debug(f"### Node inventory: {inventory}")
-
-        # Juju does not like underscores in dictionaries
-        inv = {k.replace("_", "-"): v for k, v in inventory.items()}
-        event.set_results(inv)
-
-    def _on_set_node_inventory_action(self, event):
-        """Overwrite the node inventory."""
-        inventory = self._slurmd.node_inventory
-
-        # update local copy of inventory
-        memory = event.params.get("real-memory", inventory["real_memory"])
-        inventory["real_memory"] = memory
-
-        # send it to slurmctld
-        self._slurmd.node_inventory = inventory
-
-        event.set_results({"real-memory": memory})
-
-    def _on_show_nhc_config(self, event):
+    def _on_show_nhc_config(self, event: ActionEvent) -> None:
         """Show current nhc.conf."""
-        nhc_conf = self._slurm_manager.get_nhc_config()
+        nhc_conf = self._slurmd_manager.get_nhc_config()
         event.set_results({"nhc.conf": nhc_conf})
 
-    def _on_set_partition_info_on_app_relation_data(self, event):
-        """Set the slurm partition info on the application relation data."""
-        # Only the leader can set data on the relation.
-        if self.model.unit.is_leader():
-            # If the relation with slurmctld exists then set our
-            # partition info on the application relation data.
-            # This handler shouldn't fire if the relation isn't made,
-            # but add this extra check here just in case.
-            if self._slurmd.is_joined:
-                if partition := {
-                    "partition_name": self.app.name,
-                    "partition_config": self.config.get("partition-config"),
-                    "partition_state": self.config.get("partition-state"),
-                }:
-                    self._slurmd.set_partition_info_on_app_relation_data(partition)
-                else:
-                    event.defer()
-            else:
-                event.defer()
+    def _on_node_config_action_event(self, event: ActionEvent) -> None:
+        """Get or set the user_supplied_node_conifg.
 
+        Return the node config if the `node-config` parameter is not specified, otherwise
+        parse, validate, and store the input of the `node-config` parameter in stored state.
+        Lastly, update slurmctld if there are updates to the node config.
+        """
+        valid_config = True
+        config_supplied = False
+
+        if (user_supplied_node_parameters := event.params.get("parameters")) is not None:
+            config_supplied = True
+
+            # Parse the user supplied node-config.
+            node_parameters_tmp = {}
+            try:
+                node_parameters_tmp = {
+                    item.split("=")[0]: item.split("=")[1]
+                    for item in user_supplied_node_parameters.split()
+                }
+            except IndexError:
+                logger.error(
+                    "Invalid node parameters specified. Please use KEY1=VAL KEY2=VAL format."
+                )
+                valid_config = False
+
+            # Validate the user supplied params are valid params.
+            for param in node_parameters_tmp:
+                if param not in [node_param.name for node_param in fields(Node)]:
+                    logger.error(f"Invalid user supplied node parameter: {param}.")
+                    valid_config = False
+
+            # Validate the user supplied params have valid keys.
+            for k, v in node_parameters_tmp.items():
+                if v == "":
+                    logger.error(f"Invalid user supplied node parameter: {k}={v}.")
+                    valid_config = False
+
+            if valid_config:
+                if (node_parameters := node_parameters_tmp) != self._user_supplied_node_parameters:
+                    self._user_supplied_node_parameters = node_parameters
+                    self._slurmctld.set_node()
+
+        results = {
+            "node-parameters": " ".join(
+                [f"{k}={v}" for k, v in self.get_node()["node_parameters"].items()]
+            )
+        }
+
+        if config_supplied is True:
+            results["user-supplied-node-parameters-accepted"] = f"{valid_config}"
+
+        event.set_results(results)
+
+    # Charm class properties
     @property
     def hostname(self) -> str:
         """Return the hostname."""
-        return self._slurm_manager.hostname
+        return socket.gethostname().split(".")[0]
 
     @property
-    def cluster_name(self) -> str:
-        """Return the cluster-name."""
-        return self._stored.cluster_name
+    def _user_supplied_node_parameters(self) -> dict[Any, Any]:
+        """Return the user_supplied_node_parameters from stored state."""
+        return self._stored.user_supplied_node_parameters  # type: ignore[return-value]
 
-    @cluster_name.setter
-    def cluster_name(self, name: str):
-        """Set the cluster-name."""
-        self._stored.cluster_name = name
+    @_user_supplied_node_parameters.setter
+    def _user_supplied_node_parameters(self, node_parameters: dict) -> None:
+        """Set the node_parameters in stored state."""
+        self._stored.user_supplied_node_parameters = node_parameters
+
+    @property
+    def _new_node(self) -> bool:
+        """Get the new_node from stored state."""
+        return True if self._stored.new_node is True else False
+
+    @_new_node.setter
+    def _new_node(self, new_node: bool) -> None:
+        """Set the new_node in stored state."""
+        self._stored.new_node = new_node
+
+    # Charm methods
+    def _check_status(self) -> bool:
+        """Check if we have all needed components.
+
+        - slurmd installed
+        - slurmctld available and working
+        - munge key configured and working
+        """
+        if self._stored.slurm_installed is not True:
+            self.unit.status = BlockedStatus("Error installing slurmd")
+            return False
+
+        if self._slurmctld.is_joined is not True:
+            self.unit.status = BlockedStatus("Need relations: slurmctld")
+            return False
+
+        if self._stored.slurmctld_available is not True:
+            self.unit.status = WaitingStatus("Waiting on: slurmctld")
+            return False
+
+        if not self._slurmd_manager.check_munged():
+            self.unit.status = BlockedStatus("Error configuring munge key")
+            return False
+
+        return True
+
+    def get_node(self) -> Dict[Any, Any]:
+        """Get the node from stored state."""
+        node = {
+            "node_parameters": {
+                **self._slurmd_manager.get_node_config(),
+                **self._user_supplied_node_parameters,
+            },
+            "new_node": self._new_node,
+        }
+        logger.debug(f"Node Configuration: {node}")
+        return node
+
+    def get_partition(self) -> Dict[Any, Any]:
+        """Return the partition."""
+        partition = {self.app.name: {**{"State": "UP"}, **self._stored.user_supplied_partition_parameters}}  # type: ignore[dict-item]
+        logger.debug(f"partition={partition}")
+        return partition
 
 
 if __name__ == "__main__":  # pragma: nocover
-    main(SlurmdCharm)
+    main.main(SlurmdCharm)

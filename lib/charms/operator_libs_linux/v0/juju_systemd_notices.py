@@ -198,7 +198,7 @@ class SystemdNotices:
                 Type=simple
                 Restart=always
                 WorkingDirectory={self._charm.framework.charm_dir}
-                Environment="PYTHONPATH={self._charm.framework.charm_dir / "venv"}"
+                Environment="PYTHONPATH={self._charm.framework.charm_dir / "venv"}:{self._charm.framework.charm_dir / "lib"}"
                 ExecStart=/usr/bin/python3 {__file__} {self._charm.unit.name}
 
                 [Install]

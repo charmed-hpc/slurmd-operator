@@ -1,44 +1,11 @@
 #!/bin/bash
-# This hook installs the dependencies needed to run the charm,
-# creates the dispatch executable, regenerates the symlinks for start and
-# upgrade-charm, and kicks off the operator framework.
-
 set -e
-
-# Source the os-release information into the env
-. /etc/os-release
 
 if ! [[ -f '.installed' ]]
 then
-	if [[ $ID == 'centos' ]]
-	then
-		# Install dependencies and build custom python
-		yum -y install epel-release
-		yum -y install wget gcc make tar bzip2-devel zlib-devel xz-devel openssl-devel libffi-devel sqlite-devel ncurses-devel
-
-		export PYTHON_VERSION=3.8.16
-		wget https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz -P /tmp
-		tar xvf /tmp/Python-${PYTHON_VERSION}.tar.xz -C /tmp
-		cd /tmp/Python-${PYTHON_VERSION}
-		./configure --enable-optimizations
-		make -C /tmp/Python-${PYTHON_VERSION} -j $(nproc) altinstall		
-		cd $OLDPWD
-		rm -rf /tmp/Python*
-		
-	elif [[ $ID == 'ubuntu' ]]
-	then
-		# Necessary to compile and install NHC
-		apt-get install --assume-yes make
-	fi
-	touch .installed
+    # Necessary to compile and install NHC
+    apt-get install --assume-yes make
+    touch .installed
 fi
 
-# set the correct python bin path
-if [[ $ID == "centos" ]]
-then
-	PYTHON_BIN="/usr/bin/env python3.8"
-else
-	PYTHON_BIN="/usr/bin/env python3"
-fi
-
-JUJU_DISPATCH_PATH="${JUJU_DISPATCH_PATH:-$0}" PYTHONPATH=lib:venv $PYTHON_BIN ./src/charm.py
+JUJU_DISPATCH_PATH="${JUJU_DISPATCH_PATH:-$0}" PYTHONPATH=lib:venv /usr/bin/env python3 ./src/charm.py

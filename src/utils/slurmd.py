@@ -27,7 +27,7 @@ import sys
 import textwrap
 from pathlib import Path
 
-import charms.operator_libs_linux.v1.systemd as systemd
+import charms.operator_libs_linux.v1.systemd as systemd  # type: ignore [import-untyped]
 
 _logger = logging.getLogger(__name__)
 
@@ -47,18 +47,17 @@ def restart() -> None:
     systemd.service_restart("slurmd")
 
 
-def override_default(host: str, port: int) -> None:
+def override_default(host: str) -> None:
     """Override the /etc/default/slurmd file.
 
     Args:
         host: Hostname of slurmctld service.
-        port: Port number of slurmctld service
     """
-    _logger.debug(f"Overriding /etc/default/slurmd with hostname {host} and port {port}")
+    _logger.debug("Overriding /etc/default/slurmd.")
     Path("/etc/default/slurmd").write_text(
         textwrap.dedent(
             f"""
-            SLURMD_OPTIONS="--conf-server {host}:{port}"
+            SLURMD_OPTIONS="--conf-server {host}:6817"
             PYTHONPATH={Path.cwd() / "lib"}
             """
         ).strip()
@@ -112,7 +111,7 @@ def _start_slurmd_service() -> None:
     # delimited, so it is expanded here to simplify the call to Popen.
     slurmd_cmd = shlex.split(os.path.expandvars("/usr/sbin/slurmd -D -s $SLURMD_OPTIONS"))
 
-    # Try to start slurmd with ~30 seconds in-between each attempt. Timeout after 15 minutes.
+    # Try to start slurmd with ~5 seconds in-between each attempt. Timeout after 15 minutes.
     end_time = datetime.datetime.now() + datetime.timedelta(minutes=15)
     while True:
         if datetime.datetime.now() >= end_time:
@@ -125,7 +124,7 @@ def _start_slurmd_service() -> None:
                 # enough time to fail if configuration file is not ready yet.
                 # If timeout is reached, this means the slurmd is running.
                 # If exit code is returned, this means slurmd failed and is not running.
-                process.wait(timeout=30)
+                process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 _logger.info("Slurmd successfully started")
                 break

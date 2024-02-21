@@ -1,3 +1,2 @@
-ops==2.*
-distro
-git+https://github.com/omnivector-solutions/slurm-ops-manager.git@0.8.16
+ops==2.14.0
+distro==1.9.0
