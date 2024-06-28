@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import Union
 
 import pytest
-from helpers import NHC
 from pytest_operator.plugin import OpsTest
 
 logger = logging.getLogger(__name__)
@@ -94,8 +93,3 @@ async def slurmdbd_charm(request, ops_test: OpsTest) -> Union[str, Path]:
             )
 
     return "slurmdbd"
-
-
-def pytest_sessionfinish(session, exitstatus) -> None:
-    """Clean up repository after test session has completed."""
-    Path(NHC).unlink(missing_ok=True)

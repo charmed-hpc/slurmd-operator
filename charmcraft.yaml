@@ -1,7 +1,29 @@
-# Copyright 2020 Omnivector, LLC
-# See LICENSE file for licensing details.
-
+name: slurmd
 type: charm
+
+summary: |
+  Slurmd, the compute node daemon of Slurm.
+
+description: |
+  This charm provides slurmd, munged, and the bindings to other utilities
+  that make lifecycle operations a breeze.
+  
+  slurmd is the compute node daemon of SLURM. It monitors all tasks running
+  on the compute node, accepts work (tasks), launches tasks, and kills
+  running tasks upon request.
+
+links:
+  contact: https://matrix.to/#/#hpc:ubuntu.com
+
+  issues: 
+  - https://github.com/charmed-hpc/slurmd-operator/issues
+
+  source:
+  - https://github.com/charmed-hpc/slurmd-operator
+
+assumes:
+  - juju
+
 bases:
   - build-on:
       - name: ubuntu
@@ -10,25 +32,71 @@ bases:
       - name: ubuntu
         channel: "22.04"
         architectures: [amd64]
-      - name: centos
-        channel: "7"
-        architectures: [amd64]
 
 parts:
   charm:
-    build-packages: [git]
-    charm-python-packages: [setuptools]
-
-  # Create a version file and pack it into the charm. This is dynamically generated
-  # as part of the build process for a charm to ensure that the git revision of the
-  # charm is always recorded in this version file.
-  version-file:
-    plugin: nil
     build-packages:
-      - git
+      - wget
     override-build: |
-      VERSION=$(git -C $CRAFT_PART_SRC/../../charm/src describe --dirty --always)
-      echo "Setting version to $VERSION"
-      echo $VERSION > $CRAFT_PART_INSTALL/version
-    stage:
-      - version
+       wget https://github.com/mej/nhc/releases/download/1.4.3/lbnl-nhc-1.4.3.tar.gz
+       craftctl default
+
+provides:
+  slurmctld:
+    interface: slurmd
+    limit: 1
+
+config:
+  options:
+    partition-config:
+      type: string
+      default: ""
+      description: >
+        Additional partition configuration parameters, specified as a space separated `key=value`
+        in a single line. Find a list of all possible partition configuration parameters
+        [here](https://slurm.schedmd.com/slurm.conf.html#SECTION_PARTITION-CONFIGURATION).
+        
+  
+        Example usage:
+        ```bash
+         $ juju config slurmd partition-config="DefaultTime=45:00 MaxTime=1:00:00"
+        ```
+
+    nhc-conf:
+      default: ""
+      type: string
+      description: >
+        Multiline string.
+        These lines are appended to the `nhc.conf` maintained by the charm.
+
+        Example usage:
+        ```bash
+         $ juju config slurmd nhc-conf="$(cat extra-nhc.conf)"
+        ```
+
+actions:
+  node-configured:
+    description: Remove a node from DownNodes when the reason is `New node`.
+
+  node-config:
+    description: >
+      Set or return node configuration parameters.
+
+      To get the current node configuration for this unit:
+      ``bash
+      $ juju run slurmd/0 node-parameters
+      ```
+
+      To set node level configuration parameters for the unit `slurmd/0`:
+      ``bash
+      $ juju run slurmd/0 node-config parameters="Weight=200 Gres=gpu:tesla:1,gpu:kepler:1,bandwidth:lustre:no_consume:4G"
+      ```
+
+    params:
+       parameters:
+        type: string
+        description: >
+          Node configuration parameter as defined [here](https://slurm.schedmd.com/slurm.conf.html#SECTION_NODE-CONFIGURATION).
+
+  show-nhc-config:
+    description: Display `nhc.conf`.

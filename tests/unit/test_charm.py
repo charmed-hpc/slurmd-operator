@@ -32,27 +32,30 @@ class TestCharm(unittest.TestCase):
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
-    @patch("ops.framework.EventBase.defer")
-    def test_config_changed_fail(self, defer) -> None:
+    def test_config_changed_fail(self) -> None:
         """Test config_changed failure behavior."""
         self.harness.set_leader(True)
-        self.harness.charm.on.config_changed.emit()
-        defer.assert_called()
+        self.harness.update_config({"partition-config": "FAILEVAL"})
+        self.assertEqual(self.harness.charm._stored.user_supplied_partition_parameters, {})
 
     @patch("ops.framework.EventBase.defer")
     def test_config_changed_success(self, defer) -> None:
         """Test config_changed success behavior."""
-        self.harness.charm.on.config_changed.emit()
+        self.harness.set_leader(True)
+        self.harness.update_config(
+            {"partition-config": 'DenyAccounts="myacct,youracct" DisableRootJobs="YES"'}
+        )
         defer.assert_not_called()
 
+    @patch("slurmd_ops.SlurmdManager.install", return_value=False)
     @patch("ops.framework.EventBase.defer")
-    def test_install_fail(self, defer) -> None:
+    def test_install_fail(self, _, defer) -> None:
         """Test install failure behavior."""
         self.harness.charm.on.install.emit()
         self.assertFalse(self.harness.charm._stored.slurm_installed)
         defer.assert_called()
 
-    @patch("slurm_ops_manager.SlurmManager.install")
+    @patch("slurmd_ops.SlurmdManager.install")
     @patch("pathlib.Path.read_text", return_value="v1.0.0")
     @patch("ops.model.Unit.set_workload_version")
     @patch("ops.model.Resources.fetch")
@@ -62,20 +65,6 @@ class TestCharm(unittest.TestCase):
     @patch("ops.framework.EventBase.defer")
     def test_install_success(self, defer, *_) -> None:
         """Test install success behavior."""
-        self.harness.charm.on.install.emit()
-        self.assertTrue(self.harness.charm._stored.slurm_installed)
-        defer.assert_not_called()
-
-    @patch("slurm_ops_manager.SlurmManager.install")
-    @patch("pathlib.Path.read_text", return_value="v1.0.0")
-    @patch("ops.model.Unit.set_workload_version")
-    @patch("ops.model.Resources.fetch")
-    @patch("utils.slurmd.override_default")
-    @patch("utils.slurmd.override_service")
-    @patch("charms.operator_libs_linux.v0.juju_systemd_notices.SystemdNotices.subscribe")
-    @patch("ops.framework.EventBase.defer")
-    def test_install_success_centos(self, defer, *_) -> None:
-        """Test install success behavior on CentOS."""
         self.harness.charm.on.install.emit()
         self.assertTrue(self.harness.charm._stored.slurm_installed)
         defer.assert_not_called()
@@ -95,13 +84,12 @@ class TestCharm(unittest.TestCase):
         self.harness.charm.on.update_status.emit()
         self.assertEqual(self.harness.charm.unit.status, BlockedStatus("Error installing slurmd"))
 
-    @patch("interface_slurmd.Slurmd.is_joined", new_callable=PropertyMock(return_value=True))
-    @patch("slurm_ops_manager.SlurmManager.check_munged", return_value=True)
+    @patch("interface_slurmctld.Slurmctld.is_joined", new_callable=PropertyMock(return_value=True))
+    @patch("slurmd_ops.SlurmdManager.check_munged", return_value=True)
     def test_update_status_success(self, *_) -> None:
         """Test update_status success behavior."""
         self.harness.charm._stored.slurm_installed = True
         self.harness.charm._stored.slurmctld_available = True
-        self.harness.charm._stored.slurmctld_started = True
 
         self.harness.charm.unit.status = ActiveStatus()
         self.harness.charm.on.update_status.emit()

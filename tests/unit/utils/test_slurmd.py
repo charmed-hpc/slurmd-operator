@@ -40,7 +40,7 @@ class TestSlurmd(unittest.TestCase):
 
     @patch("pathlib.Path.write_text")
     def test_overwrite_default(self, _) -> None:
-        slurmd.override_default("127.0.0.1", 6818)
+        slurmd.override_default("127.0.0.1")
 
     @patch("pathlib.Path.is_dir", return_value=False)
     @patch("pathlib.Path.mkdir")

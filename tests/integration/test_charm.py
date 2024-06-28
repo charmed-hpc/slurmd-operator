@@ -19,7 +19,6 @@ import asyncio
 import logging
 
 import pytest
-from helpers import get_slurmd_res
 from pytest_operator.plugin import OpsTest
 
 logger = logging.getLogger(__name__)
@@ -41,8 +40,8 @@ async def test_build_and_deploy(
     """Test that the slurmd charm can stabilize against slurmctld, slurmdbd and MySQL."""
     logger.info(f"Deploying {SLURMD} against {SLURMCTLD}, {SLURMDBD}, and {DATABASE}")
     # Pack charms and download NHC resource for slurmd operator.
-    slurmd_res, slurmd, slurmctld, slurmdbd = await asyncio.gather(
-        get_slurmd_res(), slurmd_charm, slurmctld_charm, slurmdbd_charm
+    slurmd, slurmctld, slurmdbd = await asyncio.gather(
+        slurmd_charm, slurmctld_charm, slurmdbd_charm
     )
     # Deploy the test Charmed SLURM cloud.
     await asyncio.gather(
@@ -50,13 +49,11 @@ async def test_build_and_deploy(
             str(slurmd),
             application_name=SLURMD,
             num_units=1,
-            resources=slurmd_res,
             base=charm_base,
         ),
         ops_test.model.deploy(
             str(slurmctld),
             application_name=SLURMCTLD,
-            config={"proctrack-type": "proctrack/linuxproc"},
             channel="edge" if isinstance(slurmctld, str) else None,
             num_units=1,
             base=charm_base,
@@ -83,11 +80,9 @@ async def test_build_and_deploy(
             base="ubuntu@22.04",
         ),
     )
-    # Attach resources to slurmd application.
-    await ops_test.juju("attach-resource", SLURMD, f"nhc={slurmd_res['nhc']}")
     # Set relations for charmed applications.
-    await ops_test.model.integrate(f"{SLURMD}:{SLURMD}", f"{SLURMCTLD}:{SLURMD}")
-    await ops_test.model.integrate(f"{SLURMDBD}:{SLURMDBD}", f"{SLURMCTLD}:{SLURMDBD}")
+    await ops_test.model.integrate(f"{SLURMD}:{SLURMCTLD}", f"{SLURMCTLD}:{SLURMD}")
+    await ops_test.model.integrate(f"{SLURMDBD}:{SLURMCTLD}", f"{SLURMCTLD}:{SLURMDBD}")
     await ops_test.model.integrate(f"{SLURMDBD}-{ROUTER}:backend-database", f"{DATABASE}:database")
     await ops_test.model.integrate(f"{SLURMDBD}:database", f"{SLURMDBD}-{ROUTER}:database")
     # Reduce the update status frequency to accelerate the triggering of deferred events.
