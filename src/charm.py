@@ -266,7 +266,6 @@ class SlurmdCharm(CharmBase):
 
         event.set_results(results)
 
-    # Charm class properties
     @property
     def hostname(self) -> str:
         """Return the hostname."""
