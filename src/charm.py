@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2024 Omnivector, LLC.
+# Copyright 2020-2024 Omnivector, LLC.
 # See LICENSE file for licensing details.
 
 """Slurmd Operator Charm."""
