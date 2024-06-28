@@ -291,7 +291,6 @@ class SlurmdCharm(CharmBase):
         """Set the new_node in stored state."""
         self._stored.new_node = new_node
 
-    # Charm methods
     def _check_status(self) -> bool:
         """Check if we have all needed components.
 
