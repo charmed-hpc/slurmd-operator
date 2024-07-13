@@ -34,12 +34,16 @@ bases:
         architectures: [amd64]
 
 parts:
-  charm:
+  charm: {}
+  nhc:
+    plugin: nil
     build-packages:
       - wget
+    override-pull: |
+      wget https://github.com/mej/nhc/releases/download/1.4.3/lbnl-nhc-1.4.3.tar.gz
     override-build: |
-       wget https://github.com/mej/nhc/releases/download/1.4.3/lbnl-nhc-1.4.3.tar.gz
-       craftctl default
+      install -m644 -D -t $CRAFT_PART_INSTALL lbnl-nhc-1.4.3.tar.gz
+      craftctl default
 
 provides:
   slurmctld:
