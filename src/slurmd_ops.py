@@ -173,7 +173,12 @@ class SlurmdManager:
         base_path.mkdir()
 
         cmd = f"tar --extract --directory {base_path} --file lbnl-nhc-1.4.3.tar.gz".split()
-        subprocess.run(cmd)
+        try:
+            result = subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True)
+            logger.debug(result)
+        except subprocess.CalledProcessError as e:
+            logger.error("failed to extract NHC using tar. reason:\n%s", e.stdout)
+            return False
 
         full_path = base_path / os.listdir(base_path)[0]
 
