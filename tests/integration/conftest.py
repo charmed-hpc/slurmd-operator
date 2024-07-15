@@ -73,23 +73,3 @@ async def slurmctld_charm(request, ops_test: OpsTest) -> Union[str, Path]:
             )
 
     return "slurmctld"
-
-
-@pytest.fixture(scope="module")
-async def slurmdbd_charm(request, ops_test: OpsTest) -> Union[str, Path]:
-    """Pack slurmdbd charm to use for integration tests when --use-local is specified.
-
-    Returns:
-        `str` "slurmdbd" if --use-local not specified or if SLURMDBD_DIR does not exist.
-    """
-    if request.config.option.use_local:
-        logger.info("Using local slurmdbd operator rather than pulling from Charmhub")
-        if SLURMDBD_DIR.exists():
-            return await ops_test.build_charm(SLURMDBD_DIR)
-        else:
-            logger.warning(
-                f"{SLURMDBD_DIR} not found. "
-                f"Defaulting to latest/edge slurmdbd operator from Charmhub"
-            )
-
-    return "slurmdbd"

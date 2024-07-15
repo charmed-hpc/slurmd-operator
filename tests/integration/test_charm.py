@@ -35,14 +35,12 @@ UNIT_NAME = f"{SLURMD}/0"
 @pytest.mark.skip_if_deployed
 @pytest.mark.order(1)
 async def test_build_and_deploy(
-    ops_test: OpsTest, charm_base: str, slurmd_charm, slurmctld_charm, slurmdbd_charm
+    ops_test: OpsTest, charm_base: str, slurmd_charm, slurmctld_charm
 ) -> None:
     """Test that the slurmd charm can stabilize against slurmctld, slurmdbd and MySQL."""
-    logger.info(f"Deploying {SLURMD} against {SLURMCTLD}, {SLURMDBD}, and {DATABASE}")
+    logger.info(f"Deploying {SLURMD} against {SLURMCTLD}")
     # Pack charms and download NHC resource for slurmd operator.
-    slurmd, slurmctld, slurmdbd = await asyncio.gather(
-        slurmd_charm, slurmctld_charm, slurmdbd_charm
-    )
+    slurmd, slurmctld = await asyncio.gather(slurmd_charm, slurmctld_charm)
     # Deploy the test Charmed SLURM cloud.
     await asyncio.gather(
         ops_test.model.deploy(
@@ -58,33 +56,9 @@ async def test_build_and_deploy(
             num_units=1,
             base=charm_base,
         ),
-        ops_test.model.deploy(
-            str(slurmdbd),
-            application_name=SLURMDBD,
-            channel="edge" if isinstance(slurmdbd, str) else None,
-            num_units=1,
-            base=charm_base,
-        ),
-        ops_test.model.deploy(
-            ROUTER,
-            application_name=f"{SLURMDBD}-{ROUTER}",
-            channel="dpe/edge",
-            num_units=0,
-            base=charm_base,
-        ),
-        ops_test.model.deploy(
-            DATABASE,
-            application_name=DATABASE,
-            channel="8.0/edge",
-            num_units=1,
-            base="ubuntu@22.04",
-        ),
     )
     # Set relations for charmed applications.
     await ops_test.model.integrate(f"{SLURMD}:{SLURMCTLD}", f"{SLURMCTLD}:{SLURMD}")
-    await ops_test.model.integrate(f"{SLURMDBD}:{SLURMCTLD}", f"{SLURMCTLD}:{SLURMDBD}")
-    await ops_test.model.integrate(f"{SLURMDBD}-{ROUTER}:backend-database", f"{DATABASE}:database")
-    await ops_test.model.integrate(f"{SLURMDBD}:database", f"{SLURMDBD}-{ROUTER}:database")
     # Reduce the update status frequency to accelerate the triggering of deferred events.
     async with ops_test.fast_forward():
         await ops_test.model.wait_for_idle(apps=[SLURMD], status="active", timeout=1000)
