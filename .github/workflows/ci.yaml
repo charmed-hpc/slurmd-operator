@@ -65,12 +65,16 @@ jobs:
 
   integration-test:
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         bases:
           - ubuntu@22.04
-    name: Integration tests (LXD) | ${{ matrix.bases }}
+        local: [true, false]
+    name: Integration tests (LXD) ${{ matrix.local && '|' || '| Charmhub (edge) |'}} ${{ matrix.bases }}
     runs-on: ubuntu-latest
+    # Testing against Charmhub will probably yield errors when doing breaking changes, so don't
+    # block CI on that.
+    continue-on-error: ${{ !matrix.local }}
     needs:
       - inclusive-naming-check
       - lint
@@ -83,6 +87,7 @@ jobs:
           path: main
       - name: Fetch slurmctld
         uses: actions/checkout@v4
+        if: ${{ matrix.local }}
         with:
           repository: charmed-hpc/slurmctld-operator
           path: slurmctld-operator
@@ -92,4 +97,7 @@ jobs:
           provider: lxd
           juju-channel: 3.1/stable
       - name: Run tests
-        run: cd main && tox run -e integration -- --charm-base=${{ matrix.bases }} --use-local
+        run: |
+          cd main && tox run -e integration -- \
+             --charm-base=${{ matrix.bases }} \
+             ${{ matrix.local && '--use-local' || '' }}
