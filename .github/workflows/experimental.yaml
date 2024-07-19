@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: slurmd charm tests
+name: slurmd charm tests (experimental)
 on:
   workflow_call:
   pull_request:
     branches:
-      - main
+      - experimental
 
 jobs:
   inclusive-naming-check:
@@ -67,16 +67,12 @@ jobs:
 
   integration-test:
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         bases:
           - ubuntu@22.04
-        local: [true, false]
-    name: Integration tests (LXD) ${{ matrix.local && '|' || '| Charmhub (edge) |'}} ${{ matrix.bases }}
+    name: Integration tests (LXD) | ${{ matrix.bases }}
     runs-on: ubuntu-latest
-    # Testing against Charmhub will probably yield errors when doing breaking changes, so don't
-    # block CI on that.
-    continue-on-error: ${{ !matrix.local }}
     needs:
       - inclusive-naming-check
       - lint
@@ -89,10 +85,10 @@ jobs:
           path: main
       - name: Fetch slurmctld
         uses: actions/checkout@v4
-        if: ${{ matrix.local }}
         with:
           repository: charmed-hpc/slurmctld-operator
           path: slurmctld-operator
+          ref: experimental
       - name: Setup operator environment
         uses: charmed-kubernetes/actions-operator@main
         with:
@@ -102,4 +98,4 @@ jobs:
         run: |
           cd main && tox run -e integration -- \
              --charm-base=${{ matrix.bases }} \
-             ${{ matrix.local && '--use-local' || '' }}
+             --use-local
