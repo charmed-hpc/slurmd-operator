@@ -60,7 +60,7 @@ class SlurmdCharm(CharmBase):
 
         self._slurmd_manager = SlurmdManager()
         self._slurmctld = Slurmctld(self, "slurmctld")
-        self._systemd_notices = SystemdNotices(self, Service("snap.slurm.slurmd", "slurmd"))
+        self._systemd_notices = SystemdNotices(self, [Service("snap.slurm.slurmd", "slurmd")])
 
         event_handler_bindings = {
             self.on.install: self._on_install,
